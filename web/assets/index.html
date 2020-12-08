@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no">
+		<link href="https://fonts.googleapis.com/css?family=Open+Sans:400,400i,700" rel="stylesheet">
+		<link rel="stylesheet" href="styles.css">
+		<script src="https://code.jquery.com/jquery-2.x-git.js"></script>
+		<script src="wasm_exec.js"></script>
+        <script>
+            const go = new Go();
+            WebAssembly.instantiateStreaming(fetch("toml.wasm"), go.importObject).then((result) => {
+                go.run(result.instance);
+            });
+        </script>
+		<title>toml v1.0.0-rc3</title>
+	</head>
+	<body>
+		<header>
+			<div class="logo">
+			</div>
+		</header>
+
+		<div class="container">
+			<section class="intro">
+				<h1>toml v1.0.0-rc3</h1>
+				<p>A toml parser and JSON transformer written in go</p>
+				<p>This parser is work in progress, please send my any parsing issues you find</p>
+			</section>
+			<section class="example">
+				<div class="code-mess">
+					<span>Drop your toml here:</span>
+					<textarea id="toml" rows="8" cols="80">
+[table]
+test=1
+					</textarea>
+					<div id="format-button" onclick="format()">transform</div>
+				</div>
+				<div class="code-neat" >
+					<span>Get your formatted json here:</span>
+					<pre id="json"></pre>
+				</div>
+			</section>
+
+			<div class="error-box" id="errormsg"></div>
+		</div>
+
+		<script async defer src="https://buttons.github.io/buttons.js"></script>
+	</body>
+</html>
