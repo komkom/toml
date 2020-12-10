@@ -8,7 +8,7 @@ import (
 	"strings"
 	"syscall/js"
 
-	"github.com/komkom/toml2json"
+	"github.com/komkom/toml"
 	"github.com/pkg/errors"
 )
 
@@ -60,7 +60,7 @@ func transform() (string, error) {
 	}
 
 	r := strings.NewReader(edit)
-	rd := toml2json.New(r)
+	rd := toml.New(r)
 	data, err := ioutil.ReadAll(rd)
 
 	fmt.Printf("____u %v\n", err)
