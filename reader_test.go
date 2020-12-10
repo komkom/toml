@@ -3,7 +3,6 @@ package toml
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"testing"
 
@@ -58,8 +57,6 @@ func TestReader(t *testing.T) {
 			assert.Contains(t, err.Error(), ts.err)
 			continue
 		}
-
-		fmt.Printf("____o %s\n", data)
 
 		require.NoError(t, err)
 		assert.True(t, json.Valid(data))

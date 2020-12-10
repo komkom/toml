@@ -143,15 +143,6 @@ var (
 					Hi:     12,
 					Stride: 1,
 				},
-
-				// TODO handle globally
-				/*
-					{ // carriage return
-						Lo:     34,
-						Hi:     34,
-						Stride: 1,
-					},
-				*/
 			},
 		},
 	}
@@ -856,14 +847,9 @@ func PrefixNumber(ranges []*unicode.RangeTable) ParseFunc {
 		}
 		scope.state = InitState
 
-		if unicode.IsSpace(r) {
+		if unicode.IsSpace(r) || r == ']' || r == '}' || r == ',' {
 			state.PopScope()
 			state.buf.WriteRune('"')
-			return ErrDontAdvance
-		}
-
-		if r == ']' || r == '}' || r == ',' {
-			state.PopScope()
 			return ErrDontAdvance
 		}
 
@@ -1096,7 +1082,6 @@ func Time(offset int, val []rune, flush bool, uptoMinutes bool) ParseFunc {
 		}
 
 		if scope.counter > 8 {
-			// TODO fix this error
 			if !unicode.IsOneOf(digitRanges, r) {
 				state.PopScope()
 				if flush {
@@ -1296,6 +1281,7 @@ func Date(offset int, val []rune) ParseFunc {
 func Zero(r rune, state *State, scope *Scope) error {
 
 	if unicode.IsSpace(r) {
+		state.buf.WriteString(`0`)
 		state.PopScope()
 		return ErrDontAdvance
 	}
@@ -1329,7 +1315,7 @@ func Zero(r rune, state *State, scope *Scope) error {
 
 	if r == '.' {
 		state.PopScope()
-		state.PushScope(Float(true), OtherType, scope)
+		state.PushScope(Float(true), OtherType, nil)
 		return nil
 	}
 

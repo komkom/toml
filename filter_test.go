@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"testing"
 	"unicode"
@@ -13,44 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBasicRanges(t *testing.T) {
-
-	tests := []struct {
-		valid  bool
-		value  string
-		ranges []*unicode.RangeTable
-	}{
-		{
-			valid: true,
-			value: `0123456789`,
-			ranges: []*unicode.RangeTable{
-				digits,
-			},
-		},
-		{
-			valid: false,
-			value: `0123456789__`,
-			ranges: []*unicode.RangeTable{
-				digits,
-			},
-		},
-	}
-
-	for _, ts := range tests {
-
-		valid := true
-		for _, r := range ts.value {
-			valid = unicode.IsOneOf(ts.ranges, r)
-			if !valid {
-				break
-			}
-		}
-
-		require.Equal(t, ts.valid, valid)
-	}
-}
-
-func TestParse3(t *testing.T) {
+func TestParse(t *testing.T) {
 
 	tests := []struct {
 		doc string
@@ -62,43 +24,6 @@ func TestParse3(t *testing.T) {
 		{
 			doc: `key=''`,
 		},
-	}
-
-	for idx, ts := range tests {
-
-		t.Log(`idx`, idx, `doc`, ts.doc)
-
-		buf := bytes.NewBufferString(ts.doc + "\n")
-		f := NewFilter()
-
-		_, err := io.Copy(f, buf)
-
-		f.WriteRune(EOF)
-
-		if ts.err != `` {
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), ts.err)
-			continue
-		}
-
-		require.NoError(t, err)
-
-		f.WriteRune('\n')
-		assert.Equal(t, 0, len(f.state.scopes))
-		f.Close()
-
-		fmt.Printf("_____i %s\n", f.state.buf.Bytes())
-		ok := json.Valid(f.state.buf.Bytes())
-		assert.True(t, ok)
-	}
-}
-
-func TestParse2(t *testing.T) {
-
-	tests := []struct {
-		doc string
-		err string
-	}{
 		{
 			doc: `
 			x=1
@@ -307,43 +232,6 @@ func TestParse2(t *testing.T) {
 			[[a.1]]
 			`,
 		},
-	}
-
-	for idx, ts := range tests {
-
-		t.Log(`idx`, idx, `doc`, ts.doc)
-
-		buf := bytes.NewBufferString(ts.doc + "\n")
-		f := NewFilter()
-
-		_, err := io.Copy(f, buf)
-
-		f.WriteRune(EOF)
-
-		if ts.err != `` {
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), ts.err)
-			continue
-		}
-
-		require.NoError(t, err)
-
-		f.WriteRune('\n')
-		assert.Equal(t, 0, len(f.state.scopes))
-		f.Close()
-
-		fmt.Printf("_____i %s\n", f.state.buf.Bytes())
-		ok := json.Valid(f.state.buf.Bytes())
-		assert.True(t, ok)
-	}
-}
-
-func TestParse(t *testing.T) {
-
-	tests := []struct {
-		doc string
-		err string
-	}{
 		{
 			doc: `date= 1975-12-12T00:00:00-07:10`,
 		},
@@ -478,12 +366,10 @@ func TestParse(t *testing.T) {
 			doc: `key = """value  ""\\"
 																															"""`,
 		},
-		/*
-			{
-				doc: `key = """value  \
+		{
+			doc: `key = """value  \
 																																"""`,
-			},
-		*/
+		},
 		{
 			doc: `key = 'value'`,
 		},
@@ -558,9 +444,7 @@ func TestParse(t *testing.T) {
 			doc: `key = +0
 																											key2 = -0`,
 		},
-		{
-			doc: `key = 0`,
-		},
+
 		{
 			doc: `key = 0xDEFF`,
 		},
@@ -624,9 +508,7 @@ func TestParse(t *testing.T) {
 		{
 			doc: `key = {value=1}`,
 		},
-		{
-			doc: `key = {value=0x123}`,
-		},
+
 		{
 			doc: `key = [1,2,3]`,
 		},
@@ -639,9 +521,7 @@ func TestParse(t *testing.T) {
 		{
 			doc: `key = {}`,
 		},
-		{
-			doc: `key = ["1",2,'2',0x123]`,
-		},
+
 		{
 			doc: `[[ array ]]`,
 		},
@@ -694,13 +574,7 @@ func TestParse(t *testing.T) {
 																				}`,
 			err: `inline table contains \n`,
 		},
-		{
-			doc: `key = { key1= 't', key2 = [
-																	1,
-																	2,
-																	0o1234,
-																				]}`,
-		},
+
 		{
 			doc: `key.test2.'test2'."xxx\uAAAAx" = 'value'`,
 		},
@@ -714,6 +588,22 @@ func TestParse(t *testing.T) {
 		{
 			doc: `[[array.x.y.z]]`,
 		},
+		{
+			doc: `key = 0`,
+		},
+		{
+			doc: `key = { key1= 't', key2 = [
+																		1,
+																		2,
+																		0o1234,
+																					]}`,
+		},
+		{
+			doc: `key = ["1",2,'2',0x123]`,
+		},
+		{
+			doc: `key = {value=0x123}`,
+		},
 	}
 
 	for idx, ts := range tests {
@@ -725,21 +615,24 @@ func TestParse(t *testing.T) {
 
 		_, err := io.Copy(f, buf)
 
-		f.WriteRune('\n')
 		f.WriteRune(EOF)
-
-		fmt.Printf("___i %s\n", f.state.buf.Bytes())
 
 		if ts.err != `` {
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), ts.err)
+			require.Contains(t, err.Error(), ts.err)
 			continue
 		}
 
 		require.NoError(t, err)
 
-		assert.Equal(t, 0, len(f.state.scopes))
+		f.WriteRune('\n')
+		require.Equal(t, 0, len(f.state.scopes))
+		f.Close()
 
+		t.Log(`json`, string(f.state.buf.Bytes()))
+
+		ok := json.Valid(f.state.buf.Bytes())
+		require.True(t, ok)
 	}
 }
 
