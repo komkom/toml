@@ -51,8 +51,8 @@ func TestReader(t *testing.T) {
 			expected: `{"key":[1,2,3,4,0]}`,
 		},
 		{
-			doc:      `key={a=1}`,
-			expected: `{"key":{"a":1}}`,
+			doc:      `key={a=0}`,
+			expected: `{"key":{"a":0}}`,
 		},
 	}
 

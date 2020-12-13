@@ -1280,7 +1280,7 @@ func Date(offset int, val []rune) ParseFunc {
 
 func Zero(r rune, state *State, scope *Scope) error {
 
-	if unicode.IsSpace(r) || r == ',' || r == ']' {
+	if unicode.IsSpace(r) || r == ',' || r == ']' || r == '}' {
 		state.buf.WriteString(`0`)
 		state.PopScope()
 		return ErrDontAdvance
