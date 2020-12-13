@@ -72,8 +72,8 @@ var (
 	dash = &unicode.RangeTable{
 		R16: []unicode.Range16{
 			{
-				Lo:     126,
-				Hi:     126,
+				Lo:     45,
+				Hi:     45,
 				Stride: 1,
 			},
 		},
