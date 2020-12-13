@@ -42,6 +42,18 @@ func TestReader(t *testing.T) {
 			doc:      `key = """\UD7FF16"""`,
 			expected: `{"key":"\\UD7FF16"}`,
 		},
+		{
+			doc:      `key = [0,1,2,3,4]`,
+			expected: `{"key":[0,1,2,3,4]}`,
+		},
+		{
+			doc:      `key = [1,2,3,4,0]`,
+			expected: `{"key":[1,2,3,4,0]}`,
+		},
+		{
+			doc:      `key={a=1}`,
+			expected: `{"key":{"a":1}}`,
+		},
 	}
 
 	for _, ts := range tests {
@@ -57,7 +69,6 @@ func TestReader(t *testing.T) {
 			assert.Contains(t, err.Error(), ts.err)
 			continue
 		}
-
 		require.NoError(t, err)
 		assert.True(t, json.Valid(data))
 		assert.Equal(t, ts.expected, string(data))
