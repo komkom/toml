@@ -12,6 +12,81 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestParseXX(t *testing.T) {
+
+	tests := []struct {
+		doc string
+		err string
+	}{
+		{
+			doc: `[[x.y.z]]
+					key=1
+					[x]
+					y=2`,
+			err: `attempt to redefine a key`,
+		},
+		{
+			doc: `[table]
+				[table]`,
+			err: `table attempt to redefine a key`,
+		},
+		{
+			doc: `
+						uyt=1
+						[[a]]
+						x=1
+						[[a]]
+						x=1
+						[a.b]
+						u=2
+						[[a]]
+						[[a.b]]
+						u=1
+						[[a.b]]
+						u=1
+						[i.y]
+						o.o.o=1`,
+		},
+		{
+			doc: `
+					[[a]]
+					x=1
+					[[a]]
+					x=1`,
+		},
+	}
+
+	for idx, ts := range tests {
+
+		t.Log(`idx`, idx, `doc`, ts.doc)
+
+		buf := bytes.NewBufferString(ts.doc + "\n")
+		f := NewFilter()
+
+		_, err := io.Copy(f, buf)
+
+		f.WriteRune(EOF)
+
+		if ts.err != `` {
+			require.Error(t, err)
+			require.Contains(t, err.Error(), ts.err)
+			continue
+		}
+
+		require.NoError(t, err)
+
+		f.WriteRune('\n')
+		require.Equal(t, 0, len(f.state.scopes))
+		f.Close()
+
+		t.Log(`json`, string(f.state.buf.Bytes()))
+
+		ok := json.Valid(f.state.buf.Bytes())
+		require.True(t, ok)
+	}
+
+}
+
 func TestParse(t *testing.T) {
 
 	tests := []struct {
@@ -30,25 +105,23 @@ func TestParse(t *testing.T) {
 			y=2
 			z=3`,
 		},
-
 		{
 			doc: `
-			uyt=1
-			[[a]]
-			x=1
-			[[a]]
-			x=1
-			[a.b]
-			u=2
-			[[a]]
-			[[a.b]]
-			u=1
-			[[a.b]]
-			u=1
-			[i.y]
-			o.o.o=1`,
+				uyt=1
+				[[a]]
+				x=1
+				[[a]]
+				x=1
+				[a.b]
+				u=2
+				[[a]]
+				[[a.b]]
+				u=1
+				[[a.b]]
+				u=1
+				[i.y]
+				o.o.o=1`,
 		},
-
 		{
 			doc: `[t]
 			x=1
@@ -66,19 +139,17 @@ func TestParse(t *testing.T) {
 			x=3
 			r=4`,
 		},
-
 		{
 			doc: `
-			[[arr]]
-			x=1
-			y=2
-			[[arr]]
-			x=3
-			y=2
-			[x]
-								`,
+				[[arr]]
+				x=1
+				y=2
+				[[arr]]
+				x=3
+				y=2
+				[x]
+									`,
 		},
-
 		{
 			doc: `
 			y=1
@@ -138,17 +209,16 @@ func TestParse(t *testing.T) {
 			[arx]
 			x=2`,
 		},
-
 		{
 			doc: `[[x.y.z]]
-			key=1
-			[x]
-			y=2`,
+				key=1
+				[x]
+				y=2`,
 			err: `attempt to redefine a key`,
 		},
 		{
 			doc: `[table]
-			[table]`,
+				[table]`,
 			err: `table attempt to redefine a key`,
 		},
 		{
@@ -219,18 +289,18 @@ func TestParse(t *testing.T) {
 		},
 		{
 			doc: `[[a.1]]
-			[[a.1.2]]
-			[a.1.2.3]
-			t=1
-			[a.1.2.3.4]
-			t=1
-			[a.1.2.5]
-			t=1
+				[[a.1.2]]
+				[a.1.2.3]
+				t=1
+				[a.1.2.3.4]
+				t=1
+				[a.1.2.5]
+				t=1
 
-			[[a.1.2]]
-			[[a.1.2.3]]
-			[[a.1]]
-			`,
+				[[a.1.2]]
+				[[a.1.2.3]]
+				[[a.1]]
+				`,
 		},
 		{
 			doc: `date= 1975-12-12T00:00:00-07:10`,
