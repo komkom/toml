@@ -1362,6 +1362,8 @@ func InlineTable() ParseFunc {
 		if (scope.state == OtherState || scope.state == AfterValueState) &&
 			r == '}' {
 			state.PopScope()
+
+			defs.keyFilter.Close(state.buf)
 			state.buf.WriteRune('}')
 			return nil
 		}

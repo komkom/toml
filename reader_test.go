@@ -27,7 +27,7 @@ func TestReader(t *testing.T) {
 		},
 		{
 			doc: `a.'b.c.d'.d=2
-					a.b.c.d=2`,
+						a.b.c.d=2`,
 			expected: `{"a":{"b.c.d":{"d":2},"b":{"c":{"d":2}}}}`,
 		},
 		{
@@ -74,6 +74,14 @@ func TestReader(t *testing.T) {
 			doc:      `   "k"  .  'e'  .y=1`,
 			expected: `{"k":{"e":{"y":1}}}`,
 		},
+		{
+			doc:      `animal = { type.name = "pug"}`,
+			expected: `{"animal":{"type":{"name":"pug"}}}`,
+		},
+		{
+			doc:      `key = {v.y=1}`,
+			expected: `{"key":{"v":{"y":1}}}`,
+		},
 	}
 
 	for _, ts := range tests {
@@ -108,7 +116,7 @@ func TestSpecs_valid(t *testing.T) {
 		if strings.HasSuffix(path, `spec-table-7.toml`) ||
 
 			// invalid json ...
-			strings.HasSuffix(path, `spec-table-inline-3.toml`) ||
+			strings.HasSuffix(path, `xxspec-table-inline-3.toml`) ||
 
 			// a = "\r" not working ...
 			strings.HasSuffix(path, `spec-string-escape-5.toml`) ||
