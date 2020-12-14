@@ -467,9 +467,6 @@ func (d Defs) Define(key []string, v Var) bool {
 			if sv == BasicVar {
 				return false
 			}
-			if sv == ArrayVar {
-				return true
-			}
 		} else {
 			d.m[subKey] = TableVar
 		}
@@ -481,18 +478,30 @@ func (d Defs) Define(key []string, v Var) bool {
 	fullKey := buf.String()
 
 	fv, ok := d.m[fullKey]
+
+	if ok && fv != ArrayVar {
+		return false
+	}
+
 	if !ok {
 		d.m[fullKey] = v
+	}
 
-		toClose := d.arrayKeyStack.Push(fullKey, v)
-		for _, k := range toClose {
+	toClose := d.arrayKeyStack.Push(fullKey, v)
+	for _, k := range toClose {
+
+		if fullKey != k || v != ArrayVar {
 			d.m[k] = BasicVar
 		}
 
-		return true
+		for key := range d.m {
+			if k != key && strings.HasPrefix(key, k) {
+				delete(d.m, key)
+			}
+		}
 	}
 
-	return v == ArrayVar && fv == ArrayVar
+	return true
 }
 
 func BaseKeyDefs(baseKey []string, defs Defs) DefineFunc {

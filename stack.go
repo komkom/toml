@@ -27,7 +27,7 @@ func (a *ArrayKeyStack) Push(key string, v Var) (toClose []string) {
 
 	if v == ArrayVar {
 		if len(a.stack) > 0 && a.stack[len(a.stack)-1] == key {
-			return toClose
+			return append(toClose, a.stack[len(a.stack)-1])
 		}
 		a.stack = append(a.stack, key)
 	}
