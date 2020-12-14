@@ -388,7 +388,7 @@ func TestParse(t *testing.T) {
 		},
 		{
 			doc: `key="xxxx"#comment
-											key2=1`,
+												key2=1`,
 		},
 		{
 			doc: `key = [1,2,

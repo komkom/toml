@@ -27,7 +27,7 @@ func TestReader(t *testing.T) {
 		},
 		{
 			doc: `a.'b.c.d'.d=2
-						a.b.c.d=2`,
+								a.b.c.d=2`,
 			expected: `{"a":{"b.c.d":{"d":2},"b":{"c":{"d":2}}}}`,
 		},
 		{
@@ -82,9 +82,19 @@ func TestReader(t *testing.T) {
 			doc:      `key = {v.y=1}`,
 			expected: `{"key":{"v":{"y":1}}}`,
 		},
+		{
+			doc:      `a = "\r"`,
+			expected: `{"a":"r"}`,
+		},
+		{
+			doc:      `another = "# test"`,
+			expected: `{"another":"# test"}`,
+		},
 	}
 
 	for _, ts := range tests {
+
+		t.Log(`doc`, ts.doc)
 
 		buf := bytes.NewBufferString(ts.doc)
 
@@ -119,10 +129,10 @@ func TestSpecs_valid(t *testing.T) {
 			strings.HasSuffix(path, `xxspec-table-inline-3.toml`) ||
 
 			// a = "\r" not working ...
-			strings.HasSuffix(path, `spec-string-escape-5.toml`) ||
+			strings.HasSuffix(path, `xxspec-string-escape-5.toml`) ||
 
 			// another = "# This is not a comment" not woring
-			strings.HasSuffix(path, `spec-comment-mid-string.toml`) ||
+			strings.HasSuffix(path, `xxspec-comment-mid-string.toml`) ||
 
 			// 'quoted "value"' = "value" json not valid
 			strings.HasSuffix(path, `spec-quoted-literal-keys-1.toml`) ||
@@ -206,19 +216,18 @@ func TestSpecs_invalid(t *testing.T) {
 			strings.HasSuffix(path, `string-basic-multiline-out-of-range-unicode-escape-2.toml`) ||
 
 			// invalid withspace escaping
-			/*
-							a = """
-				  foo \ \n
-				  bar"""
-			*/
+
+			//				a = """
+			//	  foo \ \n
+			//	  bar"""
+
 			strings.HasSuffix(path, `string-basic-multiline-invalid-backslash.toml`) ||
 			// abc = { abc = 123, }
 			strings.HasSuffix(path, `inline-table-trailing-comma.toml`) ||
 
-			/*
-							barekey
-				   = 123
-			*/
+			//				barekey
+			//	   = 123
+
 			strings.HasSuffix(path, `bare-key-2.toml`) {
 			return nil
 		}

@@ -169,7 +169,7 @@ var (
 		},
 	}
 
-	escapeCharacters = []rune{'\\', 'b', 't', 'n', 'f', '"'}
+	escapeCharacters = []rune{'\\', 'b', 't', 'n', 'f', 'r', '"'}
 
 	daysInMonth = []int{31 /*jan*/, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
 )
@@ -1434,20 +1434,15 @@ func Boolean(value []rune) ParseFunc {
 
 func Value(r rune, state *State, scope *Scope) error {
 
-	if scope.state == AfterValueState {
-		state.PopScope()
-		return ErrDontAdvance
-	}
-
 	if scope.lastToken == OTHERT && r == '"' {
 		scope.lastToken = QT
+		scope.scopeType = StringType
 		return nil
 	}
 
 	if scope.lastToken == QT && r != '"' {
-		scope.state = AfterValueState
-
-		state.PushScope(QuotedString, StringType, scope)
+		state.PopScope()
+		state.PushScope(QuotedString, StringType, nil)
 		state.buf.WriteRune('"')
 		return ErrDontAdvance
 	}
@@ -1464,20 +1459,21 @@ func Value(r rune, state *State, scope *Scope) error {
 	}
 
 	if scope.lastToken == QQT && r == '"' {
-		scope.state = AfterValueState
-		state.PushScope(TrippleQuotedString, StringType, scope)
+		state.PopScope()
+		state.PushScope(TrippleQuotedString, StringType, nil)
 		state.buf.WriteRune('"')
 		return nil
 	}
 
 	if scope.lastToken == OTHERT && r == '\'' {
 		scope.lastToken = SQT
+		scope.scopeType = StringType
 		return nil
 	}
 
 	if scope.lastToken == SQT && r != '\'' {
-		scope.state = AfterValueState
-		state.PushScope(LiteralString, StringType, scope)
+		state.PopScope()
+		state.PushScope(LiteralString, StringType, nil)
 		state.buf.WriteRune('"')
 		return ErrDontAdvance
 	}
@@ -1494,8 +1490,8 @@ func Value(r rune, state *State, scope *Scope) error {
 	}
 
 	if scope.lastToken == SQQT && r == '\'' {
-		scope.state = AfterValueState
-		state.PushScope(MultiLineLiteralString, StringType, scope)
+		state.PopScope()
+		state.PushScope(MultiLineLiteralString, StringType, nil)
 		state.buf.WriteRune('"')
 		return nil
 	}
@@ -1505,29 +1501,29 @@ func Value(r rune, state *State, scope *Scope) error {
 	}
 
 	if r == 't' {
-		scope.state = AfterValueState
-		state.PushScope(Boolean([]rune(`true`)), OtherType, scope)
+		state.PopScope()
+		state.PushScope(Boolean([]rune(`true`)), OtherType, nil)
 		state.buf.WriteString(`true`)
 		return ErrDontAdvance
 	}
 
 	if r == 'f' {
-		scope.state = AfterValueState
-		state.PushScope(Boolean([]rune(`false`)), OtherType, scope)
+		state.PopScope()
+		state.PushScope(Boolean([]rune(`false`)), OtherType, nil)
 		state.buf.WriteString(`false`)
 		return ErrDontAdvance
 	}
 
 	if r == '{' {
-		scope.state = AfterValueState
-		state.PushScope(InlineTable(), OtherType, scope)
+		state.PopScope()
+		state.PushScope(InlineTable(), OtherType, nil)
 		state.buf.WriteRune('{')
 		return nil
 	}
 
 	if r == '[' {
-		scope.state = AfterValueState
-		state.PushScope(InlineArray, OtherType, scope)
+		state.PopScope()
+		state.PushScope(InlineArray, OtherType, nil)
 		state.buf.WriteRune('[')
 		return nil
 	}
@@ -1539,8 +1535,8 @@ func Value(r rune, state *State, scope *Scope) error {
 	}
 
 	if r == '-' || r == '+' || unicode.IsOneOf(digitRanges, r) {
-		scope.state = AfterValueState
-		state.PushScope(Float(false), OtherType, scope)
+		state.PopScope()
+		state.PushScope(Float(false), OtherType, nil)
 		return ErrDontAdvance
 	}
 
