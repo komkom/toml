@@ -245,6 +245,7 @@ var (
 
 	UNDERT Token = `underscore`
 	EXPT   Token = `exp`
+	SPACET Token = `space`
 )
 
 type ScopeState string
@@ -1546,6 +1547,13 @@ func Value(r rune, state *State, scope *Scope) error {
 
 func Key(r rune, state *State, scope *Scope) error {
 
+	if unicode.IsSpace(r) && r != '\n' {
+		if scope.lastToken != DOTT {
+			scope.lastToken = SPACET
+		}
+		return nil
+	}
+
 	if scope.state != OtherState && (unicode.IsSpace(r) || r == '=' || r == ']') {
 
 		if scope.lastToken == DOTT {
@@ -1600,6 +1608,10 @@ func Key(r rune, state *State, scope *Scope) error {
 
 	if !unicode.IsOneOf(bareRanges, r) {
 		return parseError(state, `invalid character in key`)
+	}
+
+	if scope.lastToken == SPACET {
+		return parseError(state, `invalid space in key`)
 	}
 
 	scope.lastToken = OTHERT

@@ -476,16 +476,16 @@ func TestParse(t *testing.T) {
 		},
 		{
 			doc: `ke y = 'value'`,
-			err: `invalid key`,
+			err: `invalid space in key`,
 		},
 		{
 			doc: `key 2 = "value"`,
-			err: `invalid key`,
+			err: `invalid space in key`,
 		},
 		{
 			doc: `key2 = "value"
 			k ey = 'value'`,
-			err: `invalid key`,
+			err: `invalid space in key`,
 		},
 		{
 			doc: `key = """ \uD9FF  """ `,

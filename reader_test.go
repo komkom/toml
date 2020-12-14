@@ -27,7 +27,7 @@ func TestReader(t *testing.T) {
 		},
 		{
 			doc: `a.'b.c.d'.d=2
-				a.b.c.d=2`,
+					a.b.c.d=2`,
 			expected: `{"a":{"b.c.d":{"d":2},"b":{"c":{"d":2}}}}`,
 		},
 		{
@@ -58,10 +58,21 @@ func TestReader(t *testing.T) {
 			doc:      `key={a=0}`,
 			expected: `{"key":{"a":0}}`,
 		},
-
 		{
 			doc:      `key-test=1`,
 			expected: `{"key-test":1}`,
+		},
+		{
+			doc:      `k.e .y=1`,
+			expected: `{"k":{"e":{"y":1}}}`,
+		},
+		{
+			doc:      `   k  .  e .y=1`,
+			expected: `{"k":{"e":{"y":1}}}`,
+		},
+		{
+			doc:      `   "k"  .  'e'  .y=1`,
+			expected: `{"k":{"e":{"y":1}}}`,
 		},
 	}
 
@@ -93,15 +104,8 @@ func TestSpecs_valid(t *testing.T) {
 			return nil
 		}
 
-		if strings.HasSuffix(path, `spec-table-5.toml`) ||
-
-			// key with spaces
-			strings.HasSuffix(path, `spec-table-6.toml`) ||
-			strings.HasSuffix(path, `spec-dotted-keys-2.toml`) ||
-			strings.HasSuffix(path, `spec-dotted-keys-3.toml`) ||
-
-			// defining a super table after is ok .
-			strings.HasSuffix(path, `spec-table-7.toml`) ||
+		// defining a super table after is ok .
+		if strings.HasSuffix(path, `spec-table-7.toml`) ||
 
 			// invalid json ...
 			strings.HasSuffix(path, `spec-table-inline-3.toml`) ||
@@ -152,6 +156,8 @@ func TestSpecs_valid(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
+
+	t.Log(`files`, len(files))
 
 	for _, p := range files {
 
