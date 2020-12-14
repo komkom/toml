@@ -90,6 +90,10 @@ func TestReader(t *testing.T) {
 			doc:      `another = "# test"`,
 			expected: `{"another":"# test"}`,
 		},
+		{
+			doc:      `'quoted "value"' = "value"`,
+			expected: `{"quoted \"value\"":"value"}`,
+		},
 	}
 
 	for _, ts := range tests {
@@ -135,7 +139,7 @@ func TestSpecs_valid(t *testing.T) {
 			strings.HasSuffix(path, `xxspec-comment-mid-string.toml`) ||
 
 			// 'quoted "value"' = "value" json not valid
-			strings.HasSuffix(path, `spec-quoted-literal-keys-1.toml`) ||
+			strings.HasSuffix(path, `xxspec-quoted-literal-keys-1.toml`) ||
 
 			// json not valid a = "\U00000000"
 			strings.HasSuffix(path, `spec-string-escape-9.toml`) ||

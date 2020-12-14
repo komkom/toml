@@ -174,49 +174,41 @@ var (
 	daysInMonth = []int{31 /*jan*/, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
 )
 
-func writeJSONString(r rune, w *bytes.Buffer) {
+func toJSONString(r rune) string {
 
 	if r == '"' {
-		w.WriteString(`\"`)
-		return
+		return `\"`
 	}
 
 	if r == '\\' {
-		w.WriteString(`\\`)
-		return
+		return `\\`
 	}
 
 	if r == '/' {
-		w.WriteString(`\/`)
-		return
+		return `\/`
 	}
 
 	if r == '\b' {
-		w.WriteString(`\b`)
-		return
+		return `\b`
 	}
 
 	if r == '\f' {
-		w.WriteString(`\f`)
-		return
+		return `\f`
 	}
 
 	if r == '\n' {
-		w.WriteString(`\n`)
-		return
+		return `\n`
 	}
 
 	if r == '\r' {
-		w.WriteString(`\r`)
-		return
+		return `\r`
 	}
 
 	if r == '\t' {
-		w.WriteString(`\t`)
-		return
+		return `\t`
 	}
 
-	w.WriteRune(r)
+	return string(r)
 }
 
 type Token string
@@ -647,12 +639,12 @@ func QuotedString(r rune, state *State, scope *Scope) error {
 		return parseError(state, `quoted string has unescaped backslash`)
 	}
 	scope.lastToken = OTHERT
-	if scope.scopeType == KeyType {
-		state.data = append(state.data, r)
-	}
 
-	if scope.scopeType != KeyType {
-		writeJSONString(r, state.buf)
+	js := toJSONString(r)
+	if scope.scopeType == KeyType {
+		state.data = append(state.data, []rune(js)...)
+	} else {
+		state.buf.WriteString(js)
 	}
 	return nil
 }
@@ -765,7 +757,7 @@ func TrippleQuotedString(r rune, state *State, scope *Scope) error {
 	}
 
 	scope.lastToken = OTHERT
-	writeJSONString(r, state.buf)
+	state.buf.WriteString(toJSONString(r))
 	return nil
 }
 
@@ -784,10 +776,11 @@ func LiteralString(r rune, state *State, scope *Scope) error {
 		return nil
 	}
 
+	js := toJSONString(r)
 	if scope.scopeType == KeyType {
-		state.data = append(state.data, r)
+		state.data = append(state.data, []rune(js)...)
 	} else {
-		writeJSONString(r, state.buf)
+		state.buf.WriteString(js)
 	}
 	return nil
 }
@@ -845,7 +838,7 @@ func MultiLineLiteralString(r rune, state *State, scope *Scope) error {
 	}
 
 	scope.lastToken = OTHERT
-	writeJSONString(r, state.buf)
+	state.buf.WriteString(toJSONString(r))
 	return nil
 }
 
