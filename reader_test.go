@@ -27,7 +27,7 @@ func TestReader(t *testing.T) {
 		},
 		{
 			doc: `a.'b.c.d'.d=2
-								a.b.c.d=2`,
+										a.b.c.d=2`,
 			expected: `{"a":{"b.c.d":{"d":2},"b":{"c":{"d":2}}}}`,
 		},
 		{
@@ -102,6 +102,22 @@ func TestReader(t *testing.T) {
 			doc:      `hex3 = 0xdead_beef`,
 			expected: `{"hex3":"0xDEADBEEF"}`,
 		},
+		{
+			doc:      `flt9 = -0e0`,
+			expected: `{"flt9":-0e0}`,
+		},
+		{
+			doc:      `sf6 = -nan`,
+			expected: `{"sf6":"-nan"}`,
+		},
+		{
+			doc:      `sf6 = +nan`,
+			expected: `{"sf6":"nan"}`,
+		},
+		{
+			doc:      `k = 0e0`,
+			expected: `{"k":0e0}`,
+		},
 	}
 
 	for _, ts := range tests {
@@ -137,29 +153,7 @@ func TestSpecs_valid(t *testing.T) {
 		// defining a super table after is ok .
 		if strings.HasSuffix(path, `spec-table-7.toml`) ||
 			// json not valid a = "\U00000000"
-			strings.HasSuffix(path, `spec-string-escape-9.toml`) ||
-
-			// inf case not handled
-			strings.HasSuffix(path, `spec-float-10.toml`) ||
-
-			// flt9 = -0e0
-			strings.HasSuffix(path, `spec-float-9.toml`) ||
-
-			// sf6 = -nan
-			strings.HasSuffix(path, `spec-float-15.toml`) ||
-
-			// sf5 = +nan
-			strings.HasSuffix(path, `spec-float-14.toml`) ||
-
-			// sf4 = nan
-			strings.HasSuffix(path, `spec-float-13.toml`) ||
-
-			// sf2 = -inf
-			strings.HasSuffix(path, `spec-float-12.toml`) ||
-
-			// sf2 = +inf
-			strings.HasSuffix(path, `spec-float-11.toml`) {
-
+			strings.HasSuffix(path, `spec-string-escape-9.toml`) {
 			return nil
 		}
 

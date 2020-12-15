@@ -931,14 +931,38 @@ func floatDispatchDigit(r rune, state *State, scope *Scope) error {
 	return nil
 }
 
-func Float(afterDot bool) ParseFunc {
+func Float(firstState ScopeState, vals []rune, counter int) ParseFunc {
 	return func(r rune, state *State, scope *Scope) error {
 
-		if scope.counter == 0 && afterDot {
-			scope.val = append(scope.val, '0')
-			scope.val = append(scope.val, '.')
-			scope.state = AfterDotState
-			scope.counter = 2
+		if scope.lastToken == SIGNT {
+			if r == 'n' {
+				state.buf.WriteRune('"')
+				if len(scope.val) > 0 {
+					state.buf.WriteRune(scope.val[len(scope.val)-1])
+				}
+				state.buf.WriteString(`nan"`)
+
+				state.PopScope()
+				state.PushScope(LiteralValue([]rune(`nan`)), OtherType, nil)
+				return ErrDontAdvance
+			}
+			if r == 'i' {
+				state.buf.WriteRune('"')
+				if len(scope.val) > 0 {
+					state.buf.WriteRune(scope.val[len(scope.val)-1])
+				}
+				state.buf.WriteString(`inf"`)
+
+				state.PopScope()
+				state.PushScope(LiteralValue([]rune(`inf`)), OtherType, nil)
+				return ErrDontAdvance
+			}
+		}
+
+		if scope.counter == 0 && firstState != OtherState {
+			scope.val = append(scope.val, vals...)
+			scope.state = firstState
+			scope.counter = counter
 		}
 
 		if len(scope.val) == 2 && scope.counter == 2 && r == ':' {
@@ -1018,6 +1042,12 @@ func Float(afterDot bool) ParseFunc {
 				scope.state = AfterDotState
 				return nil
 			}
+
+			ok, err := floatDispatchExp(r, state, scope)
+			if ok || err != nil {
+				return err
+			}
+
 			return parseError(state, `invalid float character after zero`)
 
 		case AfterDotState:
@@ -1329,6 +1359,12 @@ func Zero(r rune, state *State, scope *Scope) error {
 		return nil
 	}
 
+	if r == 'e' || r == 'E' {
+		state.PopScope()
+		state.PushScope(Float(AfterExpState, []rune{'0', r}, 2), OtherType, nil)
+		return nil
+	}
+
 	if unicode.IsOneOf(digitRanges, r) {
 		state.PopScope()
 		state.PushScope(Date(2, []rune{'0', r}), OtherType, nil)
@@ -1337,7 +1373,7 @@ func Zero(r rune, state *State, scope *Scope) error {
 
 	if r == '.' {
 		state.PopScope()
-		state.PushScope(Float(true), OtherType, nil)
+		state.PushScope(Float(AfterDotState, []rune("0."), 2), OtherType, nil)
 		return nil
 	}
 
@@ -1426,7 +1462,7 @@ func InlineArray(r rune, state *State, scope *Scope) error {
 	return ErrDontAdvance
 }
 
-func Boolean(value []rune) ParseFunc {
+func LiteralValue(value []rune) ParseFunc {
 	return func(r rune, state *State, scope *Scope) error {
 
 		if scope.counter < len(value) {
@@ -1514,14 +1550,14 @@ func Value(r rune, state *State, scope *Scope) error {
 
 	if r == 't' {
 		state.PopScope()
-		state.PushScope(Boolean([]rune(`true`)), OtherType, nil)
+		state.PushScope(LiteralValue([]rune(`true`)), OtherType, nil)
 		state.buf.WriteString(`true`)
 		return ErrDontAdvance
 	}
 
 	if r == 'f' {
 		state.PopScope()
-		state.PushScope(Boolean([]rune(`false`)), OtherType, nil)
+		state.PushScope(LiteralValue([]rune(`false`)), OtherType, nil)
 		state.buf.WriteString(`false`)
 		return ErrDontAdvance
 	}
@@ -1540,6 +1576,20 @@ func Value(r rune, state *State, scope *Scope) error {
 		return nil
 	}
 
+	if r == 'i' {
+		state.PopScope()
+		state.PushScope(LiteralValue([]rune(`inf`)), OtherType, nil)
+		state.buf.WriteString(`"inf"`)
+		return ErrDontAdvance
+	}
+
+	if r == 'n' {
+		state.PopScope()
+		state.PushScope(LiteralValue([]rune(`nan`)), OtherType, nil)
+		state.buf.WriteString(`"nan"`)
+		return ErrDontAdvance
+	}
+
 	if r == '0' {
 		state.PopScope()
 		state.PushScope(Zero, OtherType, nil)
@@ -1548,7 +1598,7 @@ func Value(r rune, state *State, scope *Scope) error {
 
 	if r == '-' || r == '+' || unicode.IsOneOf(digitRanges, r) {
 		state.PopScope()
-		state.PushScope(Float(false), OtherType, nil)
+		state.PushScope(Float(OtherState, nil, 0), OtherType, nil)
 		return ErrDontAdvance
 	}
 
