@@ -1716,6 +1716,10 @@ func KeyValue(defineFunc DefineFunc, pushFilter KeyFilterPushFunc) ParseFunc {
 		}
 		if scope.state == AfterKeyState {
 
+			if r == '\n' {
+				return parseError(state, `invalid '\n' after key`)
+			}
+
 			if scope.lastToken == OTHERT && unicode.IsSpace(r) {
 				return nil
 			}

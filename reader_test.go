@@ -27,7 +27,7 @@ func TestReader(t *testing.T) {
 		},
 		{
 			doc: `a.'b.c.d'.d=2
-										a.b.c.d=2`,
+												a.b.c.d=2`,
 			expected: `{"a":{"b.c.d":{"d":2},"b":{"c":{"d":2}}}}`,
 		},
 		{
@@ -118,6 +118,28 @@ func TestReader(t *testing.T) {
 			doc:      `k = 0e0`,
 			expected: `{"k":0e0}`,
 		},
+		{
+			doc:      `sf6 = +inf`,
+			expected: `{"sf6":"inf"}`,
+		},
+		{
+			doc:      `sf6 = -inf`,
+			expected: `{"sf6":"-inf"}`,
+		},
+		{
+			doc:      `sf6 = inf`,
+			expected: `{"sf6":"inf"}`,
+		},
+		{
+			doc: `key = """a b c \
+				ooo"""`,
+			expected: `{"key":"a b c ooo"}`,
+		},
+		{
+			doc: `key = """value  \
+                        """`,
+			expected: `{"key":"value  "}`,
+		},
 	}
 
 	for _, ts := range tests {
@@ -198,24 +220,7 @@ func TestSpecs_invalid(t *testing.T) {
 			strings.HasSuffix(path, `comment-control-3.toml`) ||
 			strings.HasSuffix(path, `comment-control-2.toml`) ||
 			strings.HasSuffix(path, `comment-control-1.toml`) ||
-
-			// FIX hex
-			strings.HasSuffix(path, `string-basic-multiline-out-of-range-unicode-escape-2.toml`) ||
-
-			// invalid withspace escaping
-
-			//				a = """
-			//	  foo \ \n
-			//	  bar"""
-
-			strings.HasSuffix(path, `string-basic-multiline-invalid-backslash.toml`) ||
-			// abc = { abc = 123, }
-			strings.HasSuffix(path, `inline-table-trailing-comma.toml`) ||
-
-			//				barekey
-			//	   = 123
-
-			strings.HasSuffix(path, `bare-key-2.toml`) {
+			strings.HasSuffix(path, `string-basic-multiline-out-of-range-unicode-escape-2.toml`) {
 			return nil
 		}
 
