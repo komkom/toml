@@ -103,6 +103,11 @@ var (
 				Hi:     70,
 				Stride: 1,
 			},
+			{
+				Lo:     97,
+				Hi:     102,
+				Stride: 1,
+			},
 		},
 	}
 
@@ -528,6 +533,7 @@ func ShortUnicode(r rune, state *State, scope *Scope) error {
 
 	scope.val = append(scope.val, r)
 
+	r = unicode.ToUpper(r)
 	if scope.scopeType == KeyType {
 		state.data = append(state.data, r)
 	} else {
@@ -561,6 +567,7 @@ func Unicode(r rune, state *State, scope *Scope) error {
 
 	scope.val = append(scope.val, r)
 
+	r = unicode.ToUpper(r)
 	if scope.scopeType == KeyType {
 		state.data = append(state.data, r)
 	} else {
@@ -851,16 +858,28 @@ func PrefixNumber(ranges []*unicode.RangeTable) ParseFunc {
 		scope.state = InitState
 
 		if unicode.IsSpace(r) || r == ']' || r == '}' || r == ',' {
+			if scope.lastToken != DIGITT {
+				return parseError(state, `invalid character at number end`)
+			}
 			state.PopScope()
 			state.buf.WriteRune('"')
 			return ErrDontAdvance
+		}
+
+		if r == '_' {
+			if scope.lastToken != DIGITT {
+				return parseError(state, `invalid character after underscore in number`)
+			}
+			scope.lastToken = UNDERT
+			return nil
 		}
 
 		if !unicode.IsOneOf(ranges, r) {
 			return parseError(state, `invalid character in number`)
 		}
 
-		state.buf.WriteRune(r)
+		scope.lastToken = DIGITT
+		state.buf.WriteRune(unicode.ToUpper(r))
 		return nil
 	}
 }

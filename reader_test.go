@@ -94,6 +94,14 @@ func TestReader(t *testing.T) {
 			doc:      `'quoted "value"' = "value"`,
 			expected: `{"quoted \"value\"":"value"}`,
 		},
+		{
+			doc:      `hex3 = 0x123_123`,
+			expected: `{"hex3":"0x123123"}`,
+		},
+		{
+			doc:      `hex3 = 0xdead_beef`,
+			expected: `{"hex3":"0xDEADBEEF"}`,
+		},
 	}
 
 	for _, ts := range tests {
@@ -128,30 +136,11 @@ func TestSpecs_valid(t *testing.T) {
 
 		// defining a super table after is ok .
 		if strings.HasSuffix(path, `spec-table-7.toml`) ||
-
-			// invalid json ...
-			strings.HasSuffix(path, `xxspec-table-inline-3.toml`) ||
-
-			// a = "\r" not working ...
-			strings.HasSuffix(path, `xxspec-string-escape-5.toml`) ||
-
-			// another = "# This is not a comment" not woring
-			strings.HasSuffix(path, `xxspec-comment-mid-string.toml`) ||
-
-			// 'quoted "value"' = "value" json not valid
-			strings.HasSuffix(path, `xxspec-quoted-literal-keys-1.toml`) ||
-
 			// json not valid a = "\U00000000"
 			strings.HasSuffix(path, `spec-string-escape-9.toml`) ||
 
 			// inf case not handled
 			strings.HasSuffix(path, `spec-float-10.toml`) ||
-
-			// hex3 = 0xdead_beef
-			strings.HasSuffix(path, `spec-int-hex3.toml`) ||
-
-			// hex2 = 0xdeadbeef
-			strings.HasSuffix(path, `spec-int-hex2.toml`) ||
 
 			// flt9 = -0e0
 			strings.HasSuffix(path, `spec-float-9.toml`) ||

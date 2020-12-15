@@ -728,9 +728,9 @@ func TestUnicode(t *testing.T) {
 			short: true,
 		},
 		{
-			code:  `d7FF`,
-			short: true,
-			err:   `invalid digit`,
+			code:         `d7FF`,
+			expectedCode: `D7FF`,
+			short:        true,
 		},
 		{
 			code:  `g7FF`,
@@ -750,8 +750,8 @@ func TestUnicode(t *testing.T) {
 			err:  `invalid code`,
 		},
 		{
-			code: `d7ff17`,
-			err:  `invalid digit`,
+			code:         `d7ff16`,
+			expectedCode: `D7FF16`,
 		},
 		{
 			code: `G7HH17`,
@@ -814,9 +814,9 @@ func TestPrefixNumber(t *testing.T) {
 			ranges:         hexRanges,
 		},
 		{
-			number: `D7FFe`,
-			ranges: hexRanges,
-			err:    `invalid character in number`,
+			number:         `D7FFe`,
+			expectedNumber: `D7FFE`,
+			ranges:         hexRanges,
 		},
 		{
 			number: ` `,
@@ -856,6 +856,8 @@ func TestPrefixNumber(t *testing.T) {
 	}
 
 	for _, ts := range tests {
+
+		t.Log(`number`, ts.number)
 
 		var pf ParseFunc
 		pf = PrefixNumber(ts.ranges)
