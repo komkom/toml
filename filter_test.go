@@ -438,7 +438,7 @@ func TestParse(t *testing.T) {
 		},
 		{
 			doc: `key = """value  \
-																																"""`,
+			"""`,
 		},
 		{
 			doc: `key = 'value'`,
@@ -1084,7 +1084,7 @@ xx"""`,
 		},
 		{
 			doc: `key = """\UD7FF16\
-xx"""`,
+			xx"""`,
 			expected: `{"key":"\\UD7FF16xx"}`,
 		},
 		{

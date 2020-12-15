@@ -256,6 +256,7 @@ var (
 	AfterDotState         ScopeState = `after-dot`
 	AfterExpState         ScopeState = `after-exp`
 	AfterEOLState         ScopeState = `after-eol`
+	AfterEOLReturnState   ScopeState = `after-eol-return`
 
 	AfterTableState ScopeState = `after-table-state`
 	AfterArrayState ScopeState = `after-array-state`
@@ -683,10 +684,24 @@ func TrippleQuotedString(r rune, state *State, scope *Scope) error {
 		return nil
 	}
 
-	if scope.state == AfterEOLState {
+	if scope.state == AfterEOLReturnState {
 		if !unicode.IsSpace(r) {
 			scope.state = InitState
 			return ErrDontAdvance
+		}
+
+		return nil
+	}
+
+	if scope.state == AfterEOLState {
+
+		if r == '\n' {
+			scope.state = AfterEOLReturnState
+			return nil
+		}
+
+		if !unicode.IsSpace(r) {
+			return parseError(state, `invalid character in EOL`)
 		}
 		return nil
 	}
@@ -722,7 +737,7 @@ func TrippleQuotedString(r rune, state *State, scope *Scope) error {
 	if scope.lastToken == ESCT && unicode.IsSpace(r) {
 		scope.lastToken = OTHERT
 		scope.state = AfterEOLState
-		return nil
+		return ErrDontAdvance
 	}
 
 	if scope.lastToken == ESCT && r == '"' {
@@ -1410,6 +1425,10 @@ func InlineTable() ParseFunc {
 		if (scope.state == OtherState || scope.state == AfterValueState) &&
 			r == '}' {
 			state.PopScope()
+
+			if scope.lastToken == COMT {
+				return parseError(state, `inline table invalid comma at end`)
+			}
 
 			defs.keyFilter.Close(state.buf)
 			state.buf.WriteRune('}')
