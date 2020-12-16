@@ -3,7 +3,7 @@ A Toml parser and Json transformer
 
 This is work in progress.
 
-At the moment the parser should be compatible with the toml specs 1.0.0-rc3
+The parser should be compatible with the toml specs 1.0.0-rc3
 
 [please give it a try](https://komkom.github.io/toml/)
 
