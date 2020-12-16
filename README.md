@@ -1,9 +1,9 @@
 # toml
-A Toml parser and Json transformer
+A Toml parser and Json transformer.
 
 This is work in progress.
 
-The parser should be compatible with the toml specs 1.0.0-rc3
+The parser should be compliant with the toml specs 1.0.0-rc3.
 
 [please give it a try](https://komkom.github.io/toml/)
 
