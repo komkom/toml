@@ -438,9 +438,10 @@ func fullKey(key []string) string {
 type Var string
 
 var (
-	BasicVar Var = `basic-var`
-	TableVar Var = `table-var`
-	ArrayVar Var = `array-var`
+	BasicVar         Var = `basic-var`
+	TableVar         Var = `table-var`
+	ImplicitTableVar Var = `implicit-table-var`
+	ArrayVar         Var = `array-var`
 )
 
 type DefineFunc func(key []string, v Var) bool
@@ -467,7 +468,7 @@ func (d Defs) Define(key []string, v Var) bool {
 				return false
 			}
 		} else {
-			d.m[subKey] = TableVar
+			d.m[subKey] = ImplicitTableVar
 		}
 
 		buf.WriteString("\n")
@@ -478,11 +479,14 @@ func (d Defs) Define(key []string, v Var) bool {
 
 	fv, ok := d.m[fullKey]
 
-	if ok && fv != ArrayVar {
-		return false
-	}
+	if ok {
+		if fv == ImplicitTableVar && v == TableVar {
+			d.m[fullKey] = TableVar
 
-	if !ok {
+		} else if fv != ArrayVar {
+			return false
+		}
+	} else {
 		d.m[fullKey] = v
 	}
 

@@ -3,7 +3,6 @@ package toml
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -27,7 +26,7 @@ func TestReader(t *testing.T) {
 		},
 		{
 			doc: `a.'b.c.d'.d=2
-												a.b.c.d=2`,
+															a.b.c.d=2`,
 			expected: `{"a":{"b.c.d":{"d":2},"b":{"c":{"d":2}}}}`,
 		},
 		{
@@ -132,13 +131,18 @@ func TestReader(t *testing.T) {
 		},
 		{
 			doc: `key = """a b c \
-				ooo"""`,
+							ooo"""`,
 			expected: `{"key":"a b c ooo"}`,
 		},
 		{
 			doc: `key = """value  \
-                        """`,
+			                        """`,
 			expected: `{"key":"value  "}`,
+		},
+		{
+			doc: `[x.y.z.w] # for this to work
+			[x]`,
+			expected: `{"x":{"y":{"z":{"w":{}}}}}`,
 		},
 	}
 
@@ -172,10 +176,8 @@ func TestSpecs_valid(t *testing.T) {
 			return nil
 		}
 
-		// defining a super table after is ok .
-		if strings.HasSuffix(path, `spec-table-7.toml`) ||
-			// json not valid a = "\U00000000"
-			strings.HasSuffix(path, `spec-string-escape-9.toml`) {
+		// json not valid a = "\U00000000"
+		if strings.HasSuffix(path, `spec-string-escape-9.toml`) {
 			return nil
 		}
 
@@ -199,7 +201,6 @@ func TestSpecs_valid(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.True(t, json.Valid(data))
-		//	assert.Equal(t, ts.expected, string(data))
 	}
 }
 
@@ -228,8 +229,6 @@ func TestSpecs_invalid(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
-
-	fmt.Printf("____len %v\n", len(files))
 
 	for _, p := range files {
 

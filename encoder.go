@@ -85,9 +85,10 @@ func (k *KeyFilter) Push(key []string, v Var, w io.StringWriter) {
 	}
 
 	if idx > 0 {
-		if !k.path[idx-1].Head {
+		if (idx != len(key) || v != TableVar || k.path[idx-1].V != TableVar) && !k.path[idx-1].Head {
 			w.WriteString(",")
 		}
+
 	} else if k.notBaseHead {
 		w.WriteString(",")
 	}
