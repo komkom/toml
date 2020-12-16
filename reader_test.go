@@ -148,6 +148,10 @@ func TestReader(t *testing.T) {
 			doc:      `"key\r\n"=1`,
 			expected: `{"key\r\n":1}`,
 		},
+		{
+			doc:      `key="""value\r\n"""`,
+			expected: `{"key":"value/r/n"}`,
+		},
 	}
 
 	for _, ts := range tests {
