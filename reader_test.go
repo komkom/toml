@@ -83,7 +83,7 @@ func TestReader(t *testing.T) {
 		},
 		{
 			doc:      `a = "\r"`,
-			expected: `{"a":"r"}`,
+			expected: `{"a":"\r"}`,
 		},
 		{
 			doc:      `another = "# test"`,
@@ -143,6 +143,10 @@ func TestReader(t *testing.T) {
 			doc: `[x.y.z.w] # for this to work
 			[x]`,
 			expected: `{"x":{"y":{"z":{"w":{}}}}}`,
+		},
+		{
+			doc:      `"key\r\n"=1`,
+			expected: `{"key\r\n":1}`,
 		},
 	}
 

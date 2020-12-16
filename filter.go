@@ -650,8 +650,17 @@ func QuotedString(r rune, state *State, scope *Scope) error {
 	if scope.lastToken == ESCT && !isOneOf(r, escapeCharacters) {
 		return parseError(state, `quoted string has unescaped backslash`)
 	}
+	if scope.lastToken == ESCT {
+		scope.lastToken = OTHERT
+		if scope.scopeType == KeyType {
+			state.data = append(state.data, []rune{'\\', r}...)
+		} else {
+			state.buf.WriteRune('\\')
+			state.buf.WriteRune(r)
+		}
+		return nil
+	}
 	scope.lastToken = OTHERT
-
 	js := toJSONString(r)
 	if scope.scopeType == KeyType {
 		state.data = append(state.data, []rune(js)...)
