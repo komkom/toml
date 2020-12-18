@@ -492,11 +492,6 @@ func (d Defs) Define(key []string, v Var) bool {
 
 	toClose := d.arrayKeyStack.Push(fullKey, v)
 	for _, k := range toClose {
-
-		if fullKey != k || v != ArrayVar {
-			d.m[k] = BasicVar
-		}
-
 		for key := range d.m {
 			if k != key && strings.HasPrefix(key, k) {
 				delete(d.m, key)

@@ -26,7 +26,7 @@ func TestReader(t *testing.T) {
 		},
 		{
 			doc: `a.'b.c.d'.d=2
-															a.b.c.d=2`,
+																	a.b.c.d=2`,
 			expected: `{"a":{"b.c.d":{"d":2},"b":{"c":{"d":2}}}}`,
 		},
 		{
@@ -131,17 +131,17 @@ func TestReader(t *testing.T) {
 		},
 		{
 			doc: `key = """a b c \
-							ooo"""`,
+									ooo"""`,
 			expected: `{"key":"a b c ooo"}`,
 		},
 		{
 			doc: `key = """value  \
-			                        """`,
+					                        """`,
 			expected: `{"key":"value  "}`,
 		},
 		{
 			doc: `[x.y.z.w] # for this to work
-			[x]`,
+					[x]`,
 			expected: `{"x":{"y":{"z":{"w":{}}}}}`,
 		},
 		{
@@ -151,6 +151,16 @@ func TestReader(t *testing.T) {
 		{
 			doc:      `key="""value\r\n"""`,
 			expected: `{"key":"value/r/n"}`,
+		},
+		{
+			doc: `[[arr.x]]
+				[arr.x.table]
+				[[arr.x]]
+				[arr.x.table]
+				[x]
+				[[arr.x]]
+				`,
+			expected: `{"arr":{"x":[{"table":{}},{"table":{}}]},"x":{},"arr":{"x":[{}]}}`,
 		},
 	}
 

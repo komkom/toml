@@ -199,7 +199,6 @@ func TestParse(t *testing.T) {
 			[[arr.b]]
 			[x]
 			[[arr.b.c]]`,
-			err: `array attempt to redefine a key`,
 		},
 
 		{
