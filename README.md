@@ -3,7 +3,7 @@ A Toml parser and Json transformer.
 
 The parser is compliant with the toml specs 1.0.0-rc3.
 
-[please give it a try](https://komkom.github.io/toml/)
+[give it a try](https://komkom.github.io/toml/)
 
 # Unmarshaling a toml doc
 
