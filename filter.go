@@ -372,7 +372,6 @@ type Scope struct {
 	key       []string
 	scopeType ScopeType
 	counter   int
-	val2      []rune
 	lastToken Token
 	parseFunc ParseFunc
 }
@@ -389,6 +388,7 @@ type State struct {
 	line      int
 	position  int
 	inComment bool
+	keyData   []rune
 	data      []rune
 	buf       *bytes.Buffer
 }
@@ -403,6 +403,9 @@ func (s *State) PushScope(parse ParseFunc, scopeType ScopeType, thisScope *Scope
 
 func (s *State) PopScope() *Scope {
 	if len(s.scopes) > 0 {
+		if s.data != nil {
+			s.data = s.data[0:0]
+		}
 		sc := s.scopes[len(s.scopes)-1]
 		s.scopes = s.scopes[:len(s.scopes)-1]
 		return &sc
@@ -419,13 +422,13 @@ func (s *State) PeekScope() *Scope {
 }
 
 func (s *State) ResetData() {
-	if s.data != nil {
-		s.data = s.data[0:0]
+	if s.keyData != nil {
+		s.keyData = s.keyData[0:0]
 	}
 }
 
 func (s *State) ExtractKeys() []string {
-	rawKey := string(s.data)
+	rawKey := string(s.keyData)
 	s.ResetData()
 	return strings.Split(rawKey, "\n")
 }
@@ -530,18 +533,18 @@ func ShortUnicode(r rune, state *State, scope *Scope) error {
 
 	scope.counter++
 
-	scope.val2 = append(scope.val2, r)
+	state.data = append(state.data, r)
 
 	r = unicode.ToUpper(r)
 	if scope.scopeType == KeyType {
-		state.data = append(state.data, r)
+		state.keyData = append(state.keyData, r)
 	} else {
 		state.buf.WriteRune(r)
 	}
 
 	if scope.counter == 4 {
 
-		v, err := strconv.ParseInt(string(scope.val2), 16, 64)
+		v, err := strconv.ParseInt(string(state.data), 16, 64)
 		if err != nil {
 			return parseError(state, `invalid number`)
 		}
@@ -564,18 +567,18 @@ func Unicode(r rune, state *State, scope *Scope) error {
 
 	scope.counter++
 
-	scope.val2 = append(scope.val2, r)
+	state.data = append(state.data, r)
 
 	r = unicode.ToUpper(r)
 	if scope.scopeType == KeyType {
-		state.data = append(state.data, r)
+		state.keyData = append(state.keyData, r)
 	} else {
 		state.buf.WriteRune(r)
 	}
 
 	if scope.counter == 6 {
 
-		v, err := strconv.ParseInt(string(scope.val2), 16, 64)
+		v, err := strconv.ParseInt(string(state.data), 16, 64)
 		if err != nil {
 			return parseError(state, `invalid number`)
 		}
@@ -616,9 +619,9 @@ func QuotedString(r rune, state *State, scope *Scope) error {
 
 	if scope.lastToken == ESCT && r == 'U' {
 		if scope.scopeType == KeyType {
-			state.data = append(state.data, '\\')
-			state.data = append(state.data, '\\')
-			state.data = append(state.data, 'U')
+			state.keyData = append(state.keyData, '\\')
+			state.keyData = append(state.keyData, '\\')
+			state.keyData = append(state.keyData, 'U')
 		} else {
 			state.buf.WriteString("\\U")
 		}
@@ -630,8 +633,8 @@ func QuotedString(r rune, state *State, scope *Scope) error {
 
 	if scope.lastToken == ESCT && r == 'u' {
 		if scope.scopeType == KeyType {
-			state.data = append(state.data, '\\')
-			state.data = append(state.data, 'u')
+			state.keyData = append(state.keyData, '\\')
+			state.keyData = append(state.keyData, 'u')
 		} else {
 			state.buf.WriteString("\\u")
 		}
@@ -647,7 +650,7 @@ func QuotedString(r rune, state *State, scope *Scope) error {
 	if scope.lastToken == ESCT {
 		scope.lastToken = OTHERT
 		if scope.scopeType == KeyType {
-			state.data = append(state.data, []rune{'\\', r}...)
+			state.keyData = append(state.keyData, []rune{'\\', r}...)
 		} else {
 			state.buf.WriteRune('\\')
 			state.buf.WriteRune(r)
@@ -657,7 +660,7 @@ func QuotedString(r rune, state *State, scope *Scope) error {
 	scope.lastToken = OTHERT
 	js := toJSONString(r)
 	if scope.scopeType == KeyType {
-		state.data = append(state.data, []rune(js)...)
+		state.keyData = append(state.keyData, []rune(js)...)
 	} else {
 		state.buf.WriteString(js)
 	}
@@ -807,7 +810,7 @@ func LiteralString(r rune, state *State, scope *Scope) error {
 
 	js := toJSONString(r)
 	if scope.scopeType == KeyType {
-		state.data = append(state.data, []rune(js)...)
+		state.keyData = append(state.keyData, []rune(js)...)
 	} else {
 		state.buf.WriteString(js)
 	}
@@ -982,7 +985,6 @@ func Float(firstState ScopeState, firstToken Token, counter int) ParseFunc {
 			ok, err := floatDispatchSign(r, state, scope)
 			if ok || err != nil {
 				if r == '-' {
-					scope.val2 = append(scope.val2, r)
 					state.buf.WriteRune(r)
 				}
 				return err
@@ -1107,7 +1109,7 @@ func Time(offset int, val []rune, uptoMinutes bool) ParseFunc {
 
 		if scope.counter == 0 {
 			scope.counter += offset
-			scope.val2 = val
+			state.data = val
 			state.buf.WriteString(string(val))
 		}
 
@@ -1132,24 +1134,24 @@ func Time(offset int, val []rune, uptoMinutes bool) ParseFunc {
 				return parseError(state, `invalid digit in time`)
 			}
 
-			scope.val2 = append(scope.val2, r)
+			state.data = append(state.data, r)
 		}
 
 		if scope.counter == 5 {
 
-			if len(scope.val2) != 4 {
+			if len(state.data) != 4 {
 				return parseError(state, `invalid time, hour and minutes`)
 			}
 
-			err := timeVerfiyHours(scope.val2[:2])
+			err := timeVerfiyHours(state.data[:2])
 			if err != nil {
 				return parseError(state, `invalid time, hours invalid`)
 			}
-			err = timeVerfiy60(scope.val2[2:])
+			err = timeVerfiy60(state.data[2:])
 			if err != nil {
 				return parseError(state, `invalid time, minutes invalid`)
 			}
-			scope.val2 = scope.val2[0:0]
+			state.data = state.data[0:0]
 		}
 
 		if uptoMinutes && scope.counter == 5 {
@@ -1166,7 +1168,7 @@ func Time(offset int, val []rune, uptoMinutes bool) ParseFunc {
 		}
 
 		if scope.counter == 8 {
-			if len(scope.val2) != 2 {
+			if len(state.data) != 2 {
 				return parseError(state, `invalid time, seconds invalid`)
 			}
 
@@ -1214,7 +1216,7 @@ func Date(offset int, val []rune) ParseFunc {
 
 		if scope.counter == 0 {
 			scope.counter += offset
-			scope.val2 = val
+			state.data = val
 			state.buf.WriteString(string(val))
 		}
 
@@ -1222,7 +1224,7 @@ func Date(offset int, val []rune) ParseFunc {
 			if !unicode.IsOneOf(digitRanges, r) {
 				return parseError(state, `invalid digit in date year`)
 			}
-			scope.val2 = append(scope.val2, r)
+			state.data = append(state.data, r)
 		}
 
 		if (scope.counter > 4 && scope.counter < 7) ||
@@ -1230,7 +1232,7 @@ func Date(offset int, val []rune) ParseFunc {
 			if !unicode.IsOneOf(digitRanges, r) {
 				return parseError(state, `invalid digit in date`)
 			}
-			scope.val2 = append(scope.val2, r)
+			state.data = append(state.data, r)
 		}
 
 		state.buf.WriteRune(r)
@@ -1252,11 +1254,11 @@ func Date(offset int, val []rune) ParseFunc {
 
 		if scope.counter == 10 {
 
-			if len(scope.val2) != 8 {
+			if len(state.data) != 8 {
 				return parseError(state, `invalid date, month or day`)
 			}
 
-			month, err := strconv.ParseInt(string(scope.val2[4:6]), 10, 8)
+			month, err := strconv.ParseInt(string(state.data[4:6]), 10, 8)
 			if err != nil {
 				return parseError(state, `invalid digit in dates month`)
 			}
@@ -1265,7 +1267,7 @@ func Date(offset int, val []rune) ParseFunc {
 				return parseError(state, `invalid month in date`)
 			}
 
-			day, err := strconv.ParseInt(string(scope.val2[6:8]), 10, 8)
+			day, err := strconv.ParseInt(string(state.data[6:8]), 10, 8)
 			if err != nil {
 				return parseError(state, `invalid month in date`)
 			}
@@ -1396,27 +1398,27 @@ func DateOrTime(hasZeroPrefix bool) ParseFunc {
 		}
 
 		if scope.counter == 0 && hasZeroPrefix {
-			scope.val2 = append(scope.val2, '0')
+			state.data = append(state.data, '0')
 			scope.counter++
 		}
 
-		if r == ':' && len(scope.val2) == 2 {
+		if r == ':' && len(state.data) == 2 {
 
 			state.buf.WriteString(`"`)
 			scope.state = AfterValueState
-			state.PushScope(Time(2, scope.val2, false), OtherType, scope)
+			state.PushScope(Time(2, state.data, false), OtherType, scope)
 			return ErrDontAdvance
 		}
 
-		if r == '-' && len(scope.val2) == 4 {
+		if r == '-' && len(state.data) == 4 {
 
 			state.buf.WriteString(`"`)
 			scope.state = AfterValueState
-			state.PushScope(Date(4, scope.val2), OtherType, scope)
+			state.PushScope(Date(4, state.data), OtherType, scope)
 			return ErrDontAdvance
 		}
 
-		if len(scope.val2) == 4 {
+		if len(state.data) == 4 {
 			return parseError(state, `dateOrTime unexpected character`)
 		}
 
@@ -1424,7 +1426,7 @@ func DateOrTime(hasZeroPrefix bool) ParseFunc {
 			return parseError(state, `digit expected`)
 		}
 
-		scope.val2 = append(scope.val2, r)
+		state.data = append(state.data, r)
 		return nil
 	}
 }
@@ -1433,7 +1435,7 @@ func SignedNumber(r rune, state *State, scope *Scope) error {
 
 	if scope.state == OtherState {
 		if r == '-' || r == '+' {
-			scope.val2 = append(scope.val2, r)
+			state.data = append(state.data, r)
 			scope.state = InitState
 			return nil
 		}
@@ -1442,8 +1444,8 @@ func SignedNumber(r rune, state *State, scope *Scope) error {
 	if r == 'n' {
 
 		state.buf.WriteRune('"')
-		if len(scope.val2) == 1 {
-			state.buf.WriteRune(scope.val2[0])
+		if len(state.data) == 1 {
+			state.buf.WriteRune(state.data[0])
 		}
 		state.buf.WriteString(`nan"`)
 
@@ -1455,8 +1457,8 @@ func SignedNumber(r rune, state *State, scope *Scope) error {
 	if r == 'i' {
 
 		state.buf.WriteRune('"')
-		if len(scope.val2) == 1 {
-			state.buf.WriteRune(scope.val2[0])
+		if len(state.data) == 1 {
+			state.buf.WriteRune(state.data[0])
 		}
 		state.buf.WriteString(`inf"`)
 
@@ -1466,15 +1468,15 @@ func SignedNumber(r rune, state *State, scope *Scope) error {
 	}
 
 	firstToken := OTHERT
-	if len(scope.val2) == 1 {
-		if scope.val2[0] == '-' {
+	if len(state.data) == 1 {
+		if state.data[0] == '-' {
 			state.buf.WriteRune('-')
 		}
 		firstToken = SIGNT
 	}
 
 	state.PopScope()
-	state.PushScope(Float(OtherState, firstToken, len(scope.val2)), OtherType, nil)
+	state.PushScope(Float(OtherState, firstToken, len(state.data)), OtherType, nil)
 	return ErrDontAdvance
 }
 
@@ -1487,7 +1489,7 @@ func NumberDateOrTime(r rune, state *State, scope *Scope) error {
 		return ErrDontAdvance
 	}
 
-	if len(scope.val2) == 0 && (r == '+' || r == '-' || r == 'n' || r == 'i') {
+	if len(state.data) == 0 && (r == '+' || r == '-' || r == 'n' || r == 'i') {
 
 		state.PopScope()
 		state.PushScope(SignedNumber, OtherType, nil)
@@ -1502,29 +1504,29 @@ func NumberDateOrTime(r rune, state *State, scope *Scope) error {
 		scope.counter >= 3 ||
 		r == '.' || r == 'e' || r == 'E' {
 
-		if len(scope.val2) == 0 {
+		if len(state.data) == 0 {
 			return parseError(state, `invalid character in number`)
 		}
 
+		state.buf.WriteString(string(state.data))
 		state.PopScope()
-		state.buf.WriteString(string(scope.val2))
-		state.PushScope(Float(OtherState, DIGITT, len(scope.val2)), OtherType, nil)
+		state.PushScope(Float(OtherState, DIGITT, len(state.data)), OtherType, nil)
 		return ErrDontAdvance
 	}
 
-	if r == ':' && len(scope.val2) == 2 {
+	if r == ':' && len(state.data) == 2 {
 
 		state.buf.WriteString(`"`)
 		scope.state = AfterValueState
-		state.PushScope(Time(2, scope.val2, false), OtherType, scope)
+		state.PushScope(Time(2, state.data, false), OtherType, scope)
 		return ErrDontAdvance
 	}
 
-	if r == '-' && len(scope.val2) == 4 {
+	if r == '-' && len(state.data) == 4 {
 
 		scope.state = AfterValueState
 		state.buf.WriteString(`"`)
-		state.PushScope(Date(4, scope.val2), OtherType, scope)
+		state.PushScope(Date(4, state.data), OtherType, scope)
 		return ErrDontAdvance
 	}
 
@@ -1533,7 +1535,7 @@ func NumberDateOrTime(r rune, state *State, scope *Scope) error {
 		return parseError(state, `digit expected 2`)
 	}
 
-	scope.val2 = append(scope.val2, r)
+	state.data = append(state.data, r)
 
 	return nil
 }
@@ -1735,7 +1737,7 @@ func Key(r rune, state *State, scope *Scope) error {
 
 	if r == '.' {
 		scope.lastToken = DOTT
-		state.data = append(state.data, '\n')
+		state.keyData = append(state.keyData, '\n')
 		return nil
 	}
 
@@ -1768,7 +1770,7 @@ func Key(r rune, state *State, scope *Scope) error {
 	}
 
 	scope.lastToken = OTHERT
-	state.data = append(state.data, r)
+	state.keyData = append(state.keyData, r)
 	return nil
 }
 
