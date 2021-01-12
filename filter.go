@@ -266,7 +266,6 @@ var (
 	AfterFirstValueState ScopeState = `after-first-value`
 
 	AfterQuoteState ScopeState = `after-quote`
-	AfterTimeState  ScopeState = `after-time`
 	AfterTState     ScopeState = `after-T`
 )
 
@@ -373,7 +372,7 @@ type Scope struct {
 	key       []string
 	scopeType ScopeType
 	counter   int
-	val       []rune
+	val2      []rune
 	lastToken Token
 	parseFunc ParseFunc
 }
@@ -531,7 +530,7 @@ func ShortUnicode(r rune, state *State, scope *Scope) error {
 
 	scope.counter++
 
-	scope.val = append(scope.val, r)
+	scope.val2 = append(scope.val2, r)
 
 	r = unicode.ToUpper(r)
 	if scope.scopeType == KeyType {
@@ -542,7 +541,7 @@ func ShortUnicode(r rune, state *State, scope *Scope) error {
 
 	if scope.counter == 4 {
 
-		v, err := strconv.ParseInt(string(scope.val), 16, 64)
+		v, err := strconv.ParseInt(string(scope.val2), 16, 64)
 		if err != nil {
 			return parseError(state, `invalid number`)
 		}
@@ -565,7 +564,7 @@ func Unicode(r rune, state *State, scope *Scope) error {
 
 	scope.counter++
 
-	scope.val = append(scope.val, r)
+	scope.val2 = append(scope.val2, r)
 
 	r = unicode.ToUpper(r)
 	if scope.scopeType == KeyType {
@@ -576,7 +575,7 @@ func Unicode(r rune, state *State, scope *Scope) error {
 
 	if scope.counter == 6 {
 
-		v, err := strconv.ParseInt(string(scope.val), 16, 64)
+		v, err := strconv.ParseInt(string(scope.val2), 16, 64)
 		if err != nil {
 			return parseError(state, `invalid number`)
 		}
@@ -937,7 +936,7 @@ func floatDispatchExp(r rune, state *State, scope *Scope) (bool, error) {
 			return false, parseError(state, `invalid 'e' in float`)
 		}
 		scope.lastToken = EXPT
-		scope.val = append(scope.val, r)
+		state.buf.WriteRune(r)
 		scope.state = AfterExpState
 		return true, nil
 	}
@@ -950,65 +949,26 @@ func floatDispatchDigit(r rune, state *State, scope *Scope) error {
 	}
 	scope.lastToken = DIGITT
 	scope.counter++
-	scope.val = append(scope.val, r)
+	state.buf.WriteRune(r)
 	return nil
 }
 
-func Float(firstState ScopeState, vals []rune, counter int) ParseFunc {
+func Float(firstState ScopeState, firstToken Token, counter int) ParseFunc {
 	return func(r rune, state *State, scope *Scope) error {
 
-		if scope.lastToken == SIGNT {
-			if r == 'n' {
-				state.buf.WriteRune('"')
-				if len(scope.val) > 0 {
-					state.buf.WriteRune(scope.val[len(scope.val)-1])
-				}
-				state.buf.WriteString(`nan"`)
-
-				state.PopScope()
-				state.PushScope(LiteralValue([]rune(`nan`)), OtherType, nil)
-				return ErrDontAdvance
-			}
-			if r == 'i' {
-				state.buf.WriteRune('"')
-				if len(scope.val) > 0 {
-					state.buf.WriteRune(scope.val[len(scope.val)-1])
-				}
-				state.buf.WriteString(`inf"`)
-
-				state.PopScope()
-				state.PushScope(LiteralValue([]rune(`inf`)), OtherType, nil)
-				return ErrDontAdvance
-			}
-		}
-
-		if scope.counter == 0 && firstState != OtherState {
-			scope.val = append(scope.val, vals...)
+		if scope.counter == 0 {
 			scope.state = firstState
+			scope.lastToken = firstToken
 			scope.counter = counter
-		}
-
-		if len(scope.val) == 2 && scope.counter == 2 && r == ':' {
-			state.PopScope()
-			state.PushScope(Time(2, scope.val, true, false), OtherType, nil)
-			return ErrDontAdvance
-		}
-
-		if len(scope.val) == 4 && scope.counter == 4 && r == '-' {
-			state.PopScope()
-			state.PushScope(Date(4, scope.val), OtherType, nil)
-			return ErrDontAdvance
 		}
 
 		if unicode.IsSpace(r) && scope.lastToken == DIGITT {
 			state.PopScope()
-			state.buf.WriteString(string(scope.val))
 			return ErrDontAdvance
 		}
 
 		if (r == ']' || r == '}' || r == ',') && scope.lastToken == DIGITT {
 			state.PopScope()
-			state.buf.WriteString(string(scope.val))
 			return ErrDontAdvance
 		}
 
@@ -1022,13 +982,14 @@ func Float(firstState ScopeState, vals []rune, counter int) ParseFunc {
 			ok, err := floatDispatchSign(r, state, scope)
 			if ok || err != nil {
 				if r == '-' {
-					scope.val = append(scope.val, r)
+					scope.val2 = append(scope.val2, r)
+					state.buf.WriteRune(r)
 				}
 				return err
 			}
 
 			if r == '0' && (scope.lastToken == OTHERT || scope.lastToken == SIGNT) {
-				scope.val = append(scope.val, '0')
+				state.buf.WriteRune('0')
 				scope.counter++
 				scope.lastToken = DIGITT
 				scope.state = AfterInitialZeroState
@@ -1040,7 +1001,7 @@ func Float(firstState ScopeState, vals []rune, counter int) ParseFunc {
 					return parseError(state, `invalid '.' in float`)
 				}
 				scope.lastToken = DOTT
-				scope.val = append(scope.val, '.')
+				state.buf.WriteRune('.')
 				scope.state = AfterDotState
 				return nil
 			}
@@ -1061,7 +1022,7 @@ func Float(firstState ScopeState, vals []rune, counter int) ParseFunc {
 
 			if r == '.' {
 				scope.lastToken = DOTT
-				scope.val = append(scope.val, '.')
+				state.buf.WriteRune('.')
 				scope.state = AfterDotState
 				return nil
 			}
@@ -1091,7 +1052,7 @@ func Float(firstState ScopeState, vals []rune, counter int) ParseFunc {
 
 			ok, err := floatDispatchSign(r, state, scope)
 			if ok || err != nil {
-				scope.val = append(scope.val, r)
+				state.buf.WriteRune(r)
 				return err
 			}
 
@@ -1141,27 +1102,18 @@ func timeVerfiy60(val []rune) error {
 	return nil
 }
 
-func Time(offset int, val []rune, flush bool, uptoMinutes bool) ParseFunc {
+func Time(offset int, val []rune, uptoMinutes bool) ParseFunc {
 	return func(r rune, state *State, scope *Scope) error {
 
 		if scope.counter == 0 {
-			if flush {
-				state.buf.WriteRune('"')
-				for _, r := range val {
-					state.buf.WriteRune(r)
-				}
-			}
-
 			scope.counter += offset
-			scope.val = val
+			scope.val2 = val
+			state.buf.WriteString(string(val))
 		}
 
 		if scope.counter > 8 {
 			if !unicode.IsOneOf(digitRanges, r) {
 				state.PopScope()
-				if flush {
-					state.buf.WriteRune('"')
-				}
 				return ErrDontAdvance
 			}
 		}
@@ -1169,9 +1121,6 @@ func Time(offset int, val []rune, flush bool, uptoMinutes bool) ParseFunc {
 		if scope.counter == 8 {
 			if r != '.' {
 				state.PopScope()
-				if flush {
-					state.buf.WriteRune('"')
-				}
 				return ErrDontAdvance
 			}
 		}
@@ -1183,31 +1132,28 @@ func Time(offset int, val []rune, flush bool, uptoMinutes bool) ParseFunc {
 				return parseError(state, `invalid digit in time`)
 			}
 
-			scope.val = append(scope.val, r)
+			scope.val2 = append(scope.val2, r)
 		}
 
 		if scope.counter == 5 {
 
-			if len(scope.val) != 4 {
+			if len(scope.val2) != 4 {
 				return parseError(state, `invalid time, hour and minutes`)
 			}
 
-			err := timeVerfiyHours(scope.val[:2])
+			err := timeVerfiyHours(scope.val2[:2])
 			if err != nil {
 				return parseError(state, `invalid time, hours invalid`)
 			}
-			err = timeVerfiy60(scope.val[2:])
+			err = timeVerfiy60(scope.val2[2:])
 			if err != nil {
 				return parseError(state, `invalid time, minutes invalid`)
 			}
-			scope.val = scope.val[0:0]
+			scope.val2 = scope.val2[0:0]
 		}
 
 		if uptoMinutes && scope.counter == 5 {
 			state.PopScope()
-			if flush {
-				state.buf.WriteRune('"')
-			}
 			return ErrDontAdvance
 		}
 
@@ -1220,7 +1166,7 @@ func Time(offset int, val []rune, flush bool, uptoMinutes bool) ParseFunc {
 		}
 
 		if scope.counter == 8 {
-			if len(scope.val) != 2 {
+			if len(scope.val2) != 2 {
 				return parseError(state, `invalid time, seconds invalid`)
 			}
 
@@ -1234,28 +1180,21 @@ func Time(offset int, val []rune, flush bool, uptoMinutes bool) ParseFunc {
 func Date(offset int, val []rune) ParseFunc {
 	return func(r rune, state *State, scope *Scope) error {
 
-		if scope.state == AfterTimeState {
-			state.buf.WriteRune('"')
-			state.PopScope()
-			return ErrDontAdvance
-		}
-
 		if scope.state == AfterTState {
 
 			if r == 'Z' {
 				state.PopScope()
-				state.buf.WriteString(`Z"`)
+				state.buf.WriteString(`Z`)
 				return nil
 			}
 
 			if r == '-' || r == '+' {
 				state.buf.WriteRune(r)
-				scope.state = AfterTimeState
-				state.PushScope(Time(0, nil, false, true), OtherType, scope)
+				state.PopScope()
+				state.PushScope(Time(0, nil, true), OtherType, nil)
 				return nil
 			}
 
-			state.buf.WriteRune('"')
 			state.PopScope()
 			return ErrDontAdvance
 		}
@@ -1265,36 +1204,25 @@ func Date(offset int, val []rune) ParseFunc {
 			if r == ' ' || r == 'T' {
 				state.buf.WriteRune(r)
 				scope.state = AfterTState
-				state.PushScope(Time(0, nil, false, false), OtherType, scope)
+				state.PushScope(Time(0, nil, false), OtherType, scope)
 				return nil
 			}
 
-			state.buf.WriteRune('"')
 			state.PopScope()
 			return ErrDontAdvance
 		}
 
 		if scope.counter == 0 {
-			state.buf.WriteRune('"')
-			for _, r := range val {
-				state.buf.WriteRune(r)
-			}
-
 			scope.counter += offset
-			scope.val = val
-		}
-
-		if scope.counter == 2 && r == ':' {
-			scope.state = AfterTimeState
-			state.PushScope(Time(2, scope.val, false, false), OtherType, scope)
-			return ErrDontAdvance
+			scope.val2 = val
+			state.buf.WriteString(string(val))
 		}
 
 		if scope.counter < 4 {
 			if !unicode.IsOneOf(digitRanges, r) {
 				return parseError(state, `invalid digit in date year`)
 			}
-			scope.val = append(scope.val, r)
+			scope.val2 = append(scope.val2, r)
 		}
 
 		if (scope.counter > 4 && scope.counter < 7) ||
@@ -1302,7 +1230,7 @@ func Date(offset int, val []rune) ParseFunc {
 			if !unicode.IsOneOf(digitRanges, r) {
 				return parseError(state, `invalid digit in date`)
 			}
-			scope.val = append(scope.val, r)
+			scope.val2 = append(scope.val2, r)
 		}
 
 		state.buf.WriteRune(r)
@@ -1324,11 +1252,11 @@ func Date(offset int, val []rune) ParseFunc {
 
 		if scope.counter == 10 {
 
-			if len(scope.val) != 8 {
+			if len(scope.val2) != 8 {
 				return parseError(state, `invalid date, month or day`)
 			}
 
-			month, err := strconv.ParseInt(string(scope.val[4:6]), 10, 8)
+			month, err := strconv.ParseInt(string(scope.val2[4:6]), 10, 8)
 			if err != nil {
 				return parseError(state, `invalid digit in dates month`)
 			}
@@ -1337,7 +1265,7 @@ func Date(offset int, val []rune) ParseFunc {
 				return parseError(state, `invalid month in date`)
 			}
 
-			day, err := strconv.ParseInt(string(scope.val[6:8]), 10, 8)
+			day, err := strconv.ParseInt(string(scope.val2[6:8]), 10, 8)
 			if err != nil {
 				return parseError(state, `invalid month in date`)
 			}
@@ -1351,56 +1279,6 @@ func Date(offset int, val []rune) ParseFunc {
 		}
 		return nil
 	}
-}
-
-func Zero(r rune, state *State, scope *Scope) error {
-
-	if unicode.IsSpace(r) || r == ',' || r == ']' || r == '}' {
-		state.buf.WriteString(`0`)
-		state.PopScope()
-		return ErrDontAdvance
-	}
-
-	if r == 'x' {
-		state.PopScope()
-		state.buf.WriteString(`"0x`)
-		state.PushScope(PrefixNumber(hexRanges), OtherType, nil)
-		return nil
-	}
-
-	if r == 'o' {
-		state.PopScope()
-		state.buf.WriteString(`"0o`)
-		state.PushScope(PrefixNumber(octalRanges), OtherType, nil)
-		return nil
-	}
-
-	if r == 'b' {
-		state.PopScope()
-		state.buf.WriteString(`"0b`)
-		state.PushScope(PrefixNumber(binRanges), OtherType, nil)
-		return nil
-	}
-
-	if r == 'e' || r == 'E' {
-		state.PopScope()
-		state.PushScope(Float(AfterExpState, []rune{'0', r}, 2), OtherType, nil)
-		return nil
-	}
-
-	if unicode.IsOneOf(digitRanges, r) {
-		state.PopScope()
-		state.PushScope(Date(2, []rune{'0', r}), OtherType, nil)
-		return nil
-	}
-
-	if r == '.' {
-		state.PopScope()
-		state.PushScope(Float(AfterDotState, []rune("0."), 2), OtherType, nil)
-		return nil
-	}
-
-	return parseError(state, `invalid character after zero`)
 }
 
 func inlineTableDispatchKeyValue(r rune, defs Defs, state *State, scope *Scope) error {
@@ -1494,7 +1372,7 @@ func LiteralValue(value []rune) ParseFunc {
 
 		if scope.counter < len(value) {
 			if value[scope.counter] != r {
-				return parseError(state, `invalid boolean`)
+				return parseError(state, `invalid literal value`)
 			}
 		}
 
@@ -1505,6 +1383,212 @@ func LiteralValue(value []rune) ParseFunc {
 		}
 		return nil
 	}
+}
+
+func DateOrTime(hasZeroPrefix bool) ParseFunc {
+	return func(r rune, state *State, scope *Scope) error {
+
+		if scope.state == AfterValueState {
+
+			state.buf.WriteString(`"`)
+			state.PopScope()
+			return ErrDontAdvance
+		}
+
+		if scope.counter == 0 && hasZeroPrefix {
+			scope.val2 = append(scope.val2, '0')
+			scope.counter++
+		}
+
+		if r == ':' && len(scope.val2) == 2 {
+
+			state.buf.WriteString(`"`)
+			scope.state = AfterValueState
+			state.PushScope(Time(2, scope.val2, false), OtherType, scope)
+			return ErrDontAdvance
+		}
+
+		if r == '-' && len(scope.val2) == 4 {
+
+			state.buf.WriteString(`"`)
+			scope.state = AfterValueState
+			state.PushScope(Date(4, scope.val2), OtherType, scope)
+			return ErrDontAdvance
+		}
+
+		if len(scope.val2) == 4 {
+			return parseError(state, `dateOrTime unexpected character`)
+		}
+
+		if !unicode.IsOneOf(digitRanges, r) {
+			return parseError(state, `digit expected`)
+		}
+
+		scope.val2 = append(scope.val2, r)
+		return nil
+	}
+}
+
+func SignedNumber(r rune, state *State, scope *Scope) error {
+
+	if scope.state == OtherState {
+		if r == '-' || r == '+' {
+			scope.val2 = append(scope.val2, r)
+			scope.state = InitState
+			return nil
+		}
+	}
+
+	if r == 'n' {
+
+		state.buf.WriteRune('"')
+		if len(scope.val2) == 1 {
+			state.buf.WriteRune(scope.val2[0])
+		}
+		state.buf.WriteString(`nan"`)
+
+		state.PopScope()
+		state.PushScope(LiteralValue([]rune(`nan`)), OtherType, nil)
+		return ErrDontAdvance
+	}
+
+	if r == 'i' {
+
+		state.buf.WriteRune('"')
+		if len(scope.val2) == 1 {
+			state.buf.WriteRune(scope.val2[0])
+		}
+		state.buf.WriteString(`inf"`)
+
+		state.PopScope()
+		state.PushScope(LiteralValue([]rune(`inf`)), OtherType, nil)
+		return ErrDontAdvance
+	}
+
+	firstToken := OTHERT
+	if len(scope.val2) == 1 {
+		if scope.val2[0] == '-' {
+			state.buf.WriteRune('-')
+		}
+		firstToken = SIGNT
+	}
+
+	state.PopScope()
+	state.PushScope(Float(OtherState, firstToken, len(scope.val2)), OtherType, nil)
+	return ErrDontAdvance
+}
+
+func NumberDateOrTime(r rune, state *State, scope *Scope) error {
+
+	if scope.state == AfterValueState {
+
+		state.buf.WriteString(`"`)
+		state.PopScope()
+		return ErrDontAdvance
+	}
+
+	if len(scope.val2) == 0 && (r == '+' || r == '-' || r == 'n' || r == 'i') {
+
+		state.PopScope()
+		state.PushScope(SignedNumber, OtherType, nil)
+		return ErrDontAdvance
+	}
+
+	if r == '}' ||
+		r == ']' ||
+		r == ',' ||
+		r == '_' ||
+		unicode.IsSpace(r) ||
+		scope.counter >= 3 ||
+		r == '.' || r == 'e' || r == 'E' {
+
+		if len(scope.val2) == 0 {
+			return parseError(state, `invalid character in number`)
+		}
+
+		state.PopScope()
+		state.buf.WriteString(string(scope.val2))
+		state.PushScope(Float(OtherState, DIGITT, len(scope.val2)), OtherType, nil)
+		return ErrDontAdvance
+	}
+
+	if r == ':' && len(scope.val2) == 2 {
+
+		state.buf.WriteString(`"`)
+		scope.state = AfterValueState
+		state.PushScope(Time(2, scope.val2, false), OtherType, scope)
+		return ErrDontAdvance
+	}
+
+	if r == '-' && len(scope.val2) == 4 {
+
+		scope.state = AfterValueState
+		state.buf.WriteString(`"`)
+		state.PushScope(Date(4, scope.val2), OtherType, scope)
+		return ErrDontAdvance
+	}
+
+	// TODO check the zero case
+	if !unicode.IsOneOf(digitRanges, r) {
+		return parseError(state, `digit expected 2`)
+	}
+
+	scope.val2 = append(scope.val2, r)
+
+	return nil
+}
+
+func Zero(r rune, state *State, scope *Scope) error {
+
+	if unicode.IsSpace(r) || r == ',' || r == ']' || r == '}' {
+		state.buf.WriteString(`0`)
+		state.PopScope()
+		return ErrDontAdvance
+	}
+
+	if r == 'x' {
+		state.PopScope()
+		state.buf.WriteString(`"0x`)
+		state.PushScope(PrefixNumber(hexRanges), OtherType, nil)
+		return nil
+	}
+
+	if r == 'o' {
+		state.PopScope()
+		state.buf.WriteString(`"0o`)
+		state.PushScope(PrefixNumber(octalRanges), OtherType, nil)
+		return nil
+	}
+
+	if r == 'b' {
+		state.PopScope()
+		state.buf.WriteString(`"0b`)
+		state.PushScope(PrefixNumber(binRanges), OtherType, nil)
+		return nil
+	}
+
+	if r == 'e' || r == 'E' {
+		state.PopScope()
+		state.buf.WriteRune('0')
+		state.buf.WriteRune(r)
+		state.PushScope(Float(AfterExpState, OTHERT, 2), OtherType, nil)
+		return nil
+	}
+
+	if unicode.IsOneOf(digitRanges, r) {
+		state.PopScope()
+		state.PushScope(DateOrTime(true), OtherType, nil)
+		return ErrDontAdvance
+	}
+
+	if r == '.' {
+		state.PopScope()
+		state.buf.WriteString("0.")
+		state.PushScope(Float(AfterDotState, OTHERT, 2), OtherType, nil)
+		return nil
+	}
+
+	return parseError(state, `invalid character after zero`)
 }
 
 func Value(r rune, state *State, scope *Scope) error {
@@ -1603,33 +1687,15 @@ func Value(r rune, state *State, scope *Scope) error {
 		return nil
 	}
 
-	if r == 'i' {
-		state.PopScope()
-		state.PushScope(LiteralValue([]rune(`inf`)), OtherType, nil)
-		state.buf.WriteString(`"inf"`)
-		return ErrDontAdvance
-	}
-
-	if r == 'n' {
-		state.PopScope()
-		state.PushScope(LiteralValue([]rune(`nan`)), OtherType, nil)
-		state.buf.WriteString(`"nan"`)
-		return ErrDontAdvance
-	}
-
 	if r == '0' {
 		state.PopScope()
 		state.PushScope(Zero, OtherType, nil)
 		return nil
 	}
 
-	if r == '-' || r == '+' || unicode.IsOneOf(digitRanges, r) {
-		state.PopScope()
-		state.PushScope(Float(OtherState, nil, 0), OtherType, nil)
-		return ErrDontAdvance
-	}
-
-	return parseError(state, `invalid value`)
+	state.PopScope()
+	state.PushScope(NumberDateOrTime, OtherType, nil)
+	return ErrDontAdvance
 }
 
 func Key(r rune, state *State, scope *Scope) error {

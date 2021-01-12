@@ -111,7 +111,7 @@ func TestReader(t *testing.T) {
 		},
 		{
 			doc:      `sf6 = +nan`,
-			expected: `{"sf6":"nan"}`,
+			expected: `{"sf6":"+nan"}`,
 		},
 		{
 			doc:      `k = 0e0`,
@@ -119,7 +119,7 @@ func TestReader(t *testing.T) {
 		},
 		{
 			doc:      `sf6 = +inf`,
-			expected: `{"sf6":"inf"}`,
+			expected: `{"sf6":"+inf"}`,
 		},
 		{
 			doc:      `sf6 = -inf`,

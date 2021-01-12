@@ -372,7 +372,7 @@ func TestParse(t *testing.T) {
 		},
 		{
 			doc: `key=tru`,
-			err: `invalid boolean`,
+			err: `invalid literal value`,
 		},
 		{
 			doc: `key=[
@@ -980,7 +980,7 @@ func TestFloat(t *testing.T) {
 		t.Run(ts.float, func(t *testing.T) {
 
 			state := State{buf: &bytes.Buffer{}}
-			state.PushScope(Float(OtherState, nil, 0), OtherType, nil)
+			state.PushScope(Float(OtherState, OTHERT, 0), OtherType, nil)
 			sc := state.PeekScope()
 
 			var err error
