@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParseXX(t *testing.T) {
+func TestParse(t *testing.T) {
 
 	tests := []struct {
 		doc string
@@ -54,45 +54,6 @@ func TestParseXX(t *testing.T) {
 					[[a]]
 					x=1`,
 		},
-	}
-
-	for idx, ts := range tests {
-
-		t.Log(`idx`, idx, `doc`, ts.doc)
-
-		buf := bytes.NewBufferString(ts.doc + "\n")
-		f := NewFilter()
-
-		_, err := io.Copy(f, buf)
-
-		f.WriteRune(EOF)
-
-		if ts.err != `` {
-			require.Error(t, err)
-			require.Contains(t, err.Error(), ts.err)
-			continue
-		}
-
-		require.NoError(t, err)
-
-		f.WriteRune('\n')
-		require.Equal(t, 0, len(f.state.scopes))
-		f.Close()
-
-		t.Log(`json`, string(f.state.buf.Bytes()))
-
-		ok := json.Valid(f.state.buf.Bytes())
-		require.True(t, ok)
-	}
-
-}
-
-func TestParse(t *testing.T) {
-
-	tests := []struct {
-		doc string
-		err string
-	}{
 		{
 			doc: `key=""`,
 		},
