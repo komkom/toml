@@ -769,11 +769,12 @@ func TestUnicode(t *testing.T) {
 			}
 			state := State{buf: &bytes.Buffer{}}
 			state.PushScope(pf, StringType, nil)
-			sc := state.PeekScope()
+			scidx, ok := state.topScopeIdx()
+			assert.True(t, ok)
 
 			var err error
 			for _, r := range ts.code {
-				err = sc.Parse(r, &state)
+				err = state.scopes[scidx].Parse(r, &state)
 				if err != nil {
 					break
 				}
@@ -862,12 +863,13 @@ func TestPrefixNumber(t *testing.T) {
 		pf = PrefixNumber(ts.ranges)
 		state := State{buf: &bytes.Buffer{}}
 		state.PushScope(pf, OtherType, nil)
-		sc := state.PeekScope()
+		scidx, ok := state.topScopeIdx()
+		assert.True(t, ok)
 
 		var err error
 		for _, r := range ts.number {
 
-			err = sc.Parse(r, &state)
+			err = state.scopes[scidx].Parse(r, &state)
 			if err != nil {
 				break
 			}
@@ -981,12 +983,13 @@ func TestFloat(t *testing.T) {
 
 			state := State{buf: &bytes.Buffer{}}
 			state.PushScope(Float(OtherState, OTHERT, 0), OtherType, nil)
-			sc := state.PeekScope()
+			scidx, ok := state.topScopeIdx()
+			assert.True(t, ok)
 
 			var err error
 			for _, r := range ts.float {
 
-				err = sc.Parse(r, &state)
+				err = state.scopes[scidx].Parse(r, &state)
 				if err != nil {
 					break
 				}
@@ -997,7 +1000,7 @@ func TestFloat(t *testing.T) {
 
 			if err == nil {
 				if len(state.scopes) > 0 {
-					etmp := sc.Parse('\n', &state)
+					etmp := state.scopes[scidx].Parse('\n', &state)
 					if etmp != nil && !errors.Is(etmp, ErrDontAdvance) {
 						err = etmp
 					}

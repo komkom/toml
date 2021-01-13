@@ -174,6 +174,11 @@ var (
 		},
 	}
 
+	infRunes   = []rune(`inf`)
+	nanRunes   = []rune(`nan`)
+	trueRunes  = []rune(`true`)
+	falseRunes = []rune(`false`)
+
 	escapeCharacters = []rune{'\\', 'b', 't', 'n', 'f', 'r', '"'}
 
 	daysInMonth = []int{31 /*jan*/, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
@@ -332,7 +337,7 @@ func (f *Filter) Write(p []byte) (int, error) {
 			}
 		}
 
-		if f.state.PeekScope().scopeType == OtherType && r == '#' {
+		if scidx, ok := f.state.topScopeIdx(); ok && f.state.scopes[scidx].scopeType == OtherType && r == '#' {
 			f.state.inComment = true
 			continue
 		}
@@ -348,9 +353,9 @@ func (f *Filter) Write(p []byte) (int, error) {
 func (f *Filter) WriteRune(r rune) error {
 
 	for {
-		sc := f.state.PeekScope()
-		if sc != nil {
-			err := sc.Parse(r, &f.state)
+		scidx, ok := f.state.topScopeIdx()
+		if ok {
+			err := f.state.scopes[scidx].Parse(r, &f.state)
 			if errors.Is(err, ErrDontAdvance) {
 				continue
 			}
@@ -401,24 +406,21 @@ func (s *State) PushScope(parse ParseFunc, scopeType ScopeType, thisScope *Scope
 	s.scopes = append(s.scopes, Scope{parseFunc: parse, scopeType: scopeType})
 }
 
-func (s *State) PopScope() *Scope {
+func (s *State) PopScope() {
 	if len(s.scopes) > 0 {
 		if s.data != nil {
 			s.data = s.data[0:0]
 		}
-		sc := s.scopes[len(s.scopes)-1]
 		s.scopes = s.scopes[:len(s.scopes)-1]
-		return &sc
 	}
-	return nil
 }
 
-func (s *State) PeekScope() *Scope {
+func (s *State) topScopeIdx() (int, bool) {
 
 	if len(s.scopes) > 0 {
-		return &s.scopes[len(s.scopes)-1]
+		return len(s.scopes) - 1, true
 	}
-	return nil
+	return 0, false
 }
 
 func (s *State) ResetData() {
@@ -1450,7 +1452,7 @@ func SignedNumber(r rune, state *State, scope *Scope) error {
 		state.buf.WriteString(`nan"`)
 
 		state.PopScope()
-		state.PushScope(LiteralValue([]rune(`nan`)), OtherType, nil)
+		state.PushScope(LiteralValue(nanRunes), OtherType, nil)
 		return ErrDontAdvance
 	}
 
@@ -1463,7 +1465,7 @@ func SignedNumber(r rune, state *State, scope *Scope) error {
 		state.buf.WriteString(`inf"`)
 
 		state.PopScope()
-		state.PushScope(LiteralValue([]rune(`inf`)), OtherType, nil)
+		state.PushScope(LiteralValue(infRunes), OtherType, nil)
 		return ErrDontAdvance
 	}
 
@@ -1663,14 +1665,14 @@ func Value(r rune, state *State, scope *Scope) error {
 
 	if r == 't' {
 		state.PopScope()
-		state.PushScope(LiteralValue([]rune(`true`)), OtherType, nil)
+		state.PushScope(LiteralValue(trueRunes), OtherType, nil)
 		state.buf.WriteString(`true`)
 		return ErrDontAdvance
 	}
 
 	if r == 'f' {
 		state.PopScope()
-		state.PushScope(LiteralValue([]rune(`false`)), OtherType, nil)
+		state.PushScope(LiteralValue(falseRunes), OtherType, nil)
 		state.buf.WriteString(`false`)
 		return ErrDontAdvance
 	}
