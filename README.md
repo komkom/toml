@@ -29,3 +29,14 @@ if err != nil {
         
 fmt.Printf("toml: %v\n", st.Some.Toml)
 ```
+
+# Performance Considerations
+
+In the repo there are two benchmarks comparing throughputs of just reading data from memory versus also transforming and parsing the data. The parser slows down data throughput roughly 15x here.
+The overhead introduced is neglectable for most use cases.
+
+```
+BenchmarkParserThroughput-12    	   67611	     17595 ns/op	   7.05 MB/s
+BenchmarkMemoryThroughput-12    	 1000000	      1270 ns/op	 100.03 MB/s
+```
+
