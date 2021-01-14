@@ -1,5 +1,5 @@
 # toml
-A Toml parser and JSON transformer.
+A Toml parser and JSON encoder.
 
 The parser is compliant with the toml specs 1.0.0-rc3.
 
