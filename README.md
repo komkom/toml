@@ -5,6 +5,12 @@ The parser is compliant with the toml specs 1.0.0-rc3.
 
 [give it a try](https://komkom.github.io/toml/)
 
+Installation:
+
+```
+go get github.com/komkom/toml
+```
+
 # Unmarshaling a toml doc
 
 Since the parser transforms a toml in stream into a valid json, normal json unmarshaling from the std lib can be used.
