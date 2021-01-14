@@ -24,7 +24,7 @@ func New(reader io.Reader) *Reader {
 func (r *Reader) Read(p []byte) (int, error) {
 
 	if !r.readerDone {
-		for r.filter.buf.Len() < len(p) {
+		for r.filter.state.buf.Len() < len(p) {
 			n, err := r.reader.Read(p)
 			_, err = r.filter.Write(p[:n])
 			if err != nil {

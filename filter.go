@@ -290,11 +290,8 @@ type Filter struct {
 func NewFilter() *Filter {
 
 	state := State{
-		defs: Defs{m: map[string]Var{},
-			arrayKeyStack: &ArrayKeyStack{},
-			keyFilter:     &KeyFilter{},
-		},
-		buf: bytes.NewBufferString(`{`),
+		defs: MakeDefs(),
+		buf:  bytes.NewBufferString(`{`),
 	}
 
 	state.PushScope(Top, OtherType, nil)
@@ -437,73 +434,6 @@ func (s *State) ExtractKeys() []string {
 
 func fullKey(key []string) string {
 	return strings.Join(key, "\n")
-}
-
-type Var string
-
-var (
-	BasicVar         Var = `basic-var`
-	TableVar         Var = `table-var`
-	ImplicitTableVar Var = `implicit-table-var`
-	ArrayVar         Var = `array-var`
-)
-
-type DefineFunc func(key []string, v Var) bool
-
-type Defs struct {
-	m             map[string]Var
-	arrayKeyStack *ArrayKeyStack
-	keyFilter     *KeyFilter
-}
-
-func (d Defs) Define(key []string, v Var) bool {
-
-	if len(key) == 0 {
-		return false
-	}
-
-	buf := bytes.NewBufferString(key[0])
-	for i := 1; i < len(key); i++ {
-
-		subKey := buf.String()
-
-		if sv, ok := d.m[subKey]; ok {
-			if sv == BasicVar {
-				return false
-			}
-		} else {
-			d.m[subKey] = ImplicitTableVar
-		}
-
-		buf.WriteString("\n")
-		buf.WriteString(key[i])
-	}
-
-	fullKey := buf.String()
-
-	fv, ok := d.m[fullKey]
-
-	if ok {
-		if fv == ImplicitTableVar && v == TableVar {
-			d.m[fullKey] = TableVar
-
-		} else if fv != ArrayVar {
-			return false
-		}
-	} else {
-		d.m[fullKey] = v
-	}
-
-	toClose := d.arrayKeyStack.Push(fullKey, v)
-	for _, k := range toClose {
-		for key := range d.m {
-			if k != key && strings.HasPrefix(key, k) {
-				delete(d.m, key)
-			}
-		}
-	}
-
-	return true
 }
 
 func BaseKeyDefs(baseKey []string, defs Defs) DefineFunc {
@@ -1298,10 +1228,7 @@ func inlineTableDispatchKeyValue(r rune, defs Defs, state *State, scope *Scope) 
 
 func InlineTable() ParseFunc {
 
-	defs := Defs{
-		m:             map[string]Var{},
-		arrayKeyStack: &ArrayKeyStack{},
-		keyFilter:     &KeyFilter{}}
+	defs := MakeDefs()
 	return func(r rune, state *State, scope *Scope) error {
 
 		if r == '\n' {
