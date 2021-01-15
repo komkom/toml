@@ -1,5 +1,6 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/komkom/toml)](https://goreportcard.com/report/github.com/komkom/toml)
-
+[![GoDoc](https://godoc.org/github.com/komkom/toml?status.svg)](https://godoc.org/github.com/komkom/toml)
+ 
 # toml
 A Toml parser and JSON encoder.
 
