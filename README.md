@@ -42,7 +42,7 @@ fmt.Printf("toml: %v\n", st.Some.Toml)
 # Performance Considerations
 
 In the repo there are two benchmarks comparing throughputs of just reading data from memory versus also transforming and parsing the data. The parser slows down data throughput around 15x here.
-These benchmarks by no means thorough and only hint at an estimate.
+These benchmarks are by no means thorough and only hint at an estimate.
 
 ```
 BenchmarkParserThroughput-12    	   67611	     17595 ns/op	   7.05 MB/s
