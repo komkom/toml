@@ -45,7 +45,7 @@ In the repo there are two benchmarks comparing throughputs of just reading data 
 These benchmarks are by no means thorough and only hint at an estimate.
 
 ```
-BenchmarkParserThroughput-12    	   67611	     17595 ns/op	   7.05 MB/s
-BenchmarkMemoryThroughput-12    	 1000000	      1270 ns/op	 100.03 MB/s
+Parser Throughput    7.05 MB/s
+Memory Throughput  	 100.03 MB/s
 ```
 
