@@ -1,5 +1,7 @@
+[![Go Report Card](https://goreportcard.com/badge/github.com/komkom/toml)](https://goreportcard.com/report/github.com/komkom/toml)
+
 # toml
-A Toml parser and Json transformer.
+A Toml parser and JSON encoder.
 
 The parser is compliant with the toml specs 1.0.0-rc3.
 
