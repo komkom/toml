@@ -656,12 +656,12 @@ func TestParse(t *testing.T) {
 		require.NoError(t, err)
 
 		f.WriteRune('\n')
-		require.Equal(t, 0, len(f.state.scopes))
+		require.Equal(t, 0, len(f.State.Scopes))
 		f.Close()
 
-		t.Log(`json`, string(f.state.buf.Bytes()))
+		t.Log(`json`, string(f.State.Buf.Bytes()))
 
-		ok := json.Valid(f.state.buf.Bytes())
+		ok := json.Valid(f.State.Buf.Bytes())
 		require.True(t, ok)
 	}
 }
@@ -728,18 +728,18 @@ func TestUnicode(t *testing.T) {
 			if ts.short {
 				pf = ShortUnicode
 			}
-			state := State{buf: &bytes.Buffer{}}
+			state := State{Buf: &bytes.Buffer{}}
 			state.PushScope(pf, StringType, nil)
 			scidx, ok := state.topScopeIdx()
 			assert.True(t, ok)
 
 			var err error
 			for _, r := range ts.code {
-				err = state.scopes[scidx].Parse(r, &state)
+				err = state.Scopes[scidx].Parse(r, &state)
 				if err != nil {
 					break
 				}
-				if len(state.scopes) == 0 {
+				if len(state.Scopes) == 0 {
 					break
 				}
 			}
@@ -753,9 +753,9 @@ func TestUnicode(t *testing.T) {
 			require.NoError(t, err)
 
 			if ts.expectedCode != `` {
-				assert.Equal(t, ts.expectedCode, string(state.buf.Bytes()))
+				assert.Equal(t, ts.expectedCode, string(state.Buf.Bytes()))
 			} else {
-				assert.Equal(t, ts.code, string(state.buf.Bytes()))
+				assert.Equal(t, ts.code, string(state.Buf.Bytes()))
 			}
 		})
 	}
@@ -822,7 +822,7 @@ func TestPrefixNumber(t *testing.T) {
 
 		var pf ParseFunc
 		pf = PrefixNumber(ts.ranges)
-		state := State{buf: &bytes.Buffer{}}
+		state := State{Buf: &bytes.Buffer{}}
 		state.PushScope(pf, OtherType, nil)
 		scidx, ok := state.topScopeIdx()
 		assert.True(t, ok)
@@ -830,11 +830,11 @@ func TestPrefixNumber(t *testing.T) {
 		var err error
 		for _, r := range ts.number {
 
-			err = state.scopes[scidx].Parse(r, &state)
+			err = state.Scopes[scidx].Parse(r, &state)
 			if err != nil {
 				break
 			}
-			if len(state.scopes) == 0 {
+			if len(state.Scopes) == 0 {
 				break
 			}
 		}
@@ -845,7 +845,7 @@ func TestPrefixNumber(t *testing.T) {
 			continue
 		}
 		require.NoError(t, err)
-		assert.Equal(t, ts.expectedNumber, string(state.buf.Bytes()))
+		assert.Equal(t, ts.expectedNumber, string(state.Buf.Bytes()))
 	}
 }
 
@@ -942,7 +942,7 @@ func TestFloat(t *testing.T) {
 
 		t.Run(ts.float, func(t *testing.T) {
 
-			state := State{buf: &bytes.Buffer{}}
+			state := State{Buf: &bytes.Buffer{}}
 			state.PushScope(Float(OtherState, OTHERT, 0), OtherType, nil)
 			scidx, ok := state.topScopeIdx()
 			assert.True(t, ok)
@@ -950,18 +950,18 @@ func TestFloat(t *testing.T) {
 			var err error
 			for _, r := range ts.float {
 
-				err = state.scopes[scidx].Parse(r, &state)
+				err = state.Scopes[scidx].Parse(r, &state)
 				if err != nil {
 					break
 				}
-				if len(state.scopes) == 0 {
+				if len(state.Scopes) == 0 {
 					break
 				}
 			}
 
 			if err == nil {
-				if len(state.scopes) > 0 {
-					etmp := state.scopes[scidx].Parse('\n', &state)
+				if len(state.Scopes) > 0 {
+					etmp := state.Scopes[scidx].Parse('\n', &state)
 					if etmp != nil && !errors.Is(etmp, ErrDontAdvance) {
 						err = etmp
 					}
@@ -974,7 +974,7 @@ func TestFloat(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, ts.expectedFloat, string(state.buf.Bytes()))
+			assert.Equal(t, ts.expectedFloat, string(state.Buf.Bytes()))
 		})
 	}
 }
@@ -1208,11 +1208,11 @@ xx"""`,
 		require.NoError(t, err)
 
 		f.WriteRune('\n')
-		assert.Equal(t, 0, len(f.state.scopes))
+		assert.Equal(t, 0, len(f.State.Scopes))
 		f.Close()
 
-		ok := json.Valid(f.state.buf.Bytes())
+		ok := json.Valid(f.State.Buf.Bytes())
 		assert.True(t, ok)
-		assert.Equal(t, ts.expected, string(f.state.buf.Bytes()))
+		assert.Equal(t, ts.expected, string(f.State.Buf.Bytes()))
 	}
 }

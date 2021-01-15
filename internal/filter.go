@@ -283,28 +283,28 @@ var (
 )
 
 type Filter struct {
-	state State
-	buf   *bytes.Buffer
+	State State
+	Buf   *bytes.Buffer
 }
 
 func NewFilter() *Filter {
 
 	state := State{
+		Buf:  bytes.NewBufferString(`{`),
 		defs: MakeDefs(),
-		buf:  bytes.NewBufferString(`{`),
 	}
 
 	state.PushScope(Top, OtherType, nil)
 
-	return &Filter{buf: &bytes.Buffer{}, state: state}
+	return &Filter{Buf: &bytes.Buffer{}, State: state}
 }
 
 func (f *Filter) Write(p []byte) (int, error) {
 
-	f.buf.Write(p)
+	f.Buf.Write(p)
 
 	for {
-		r, _, err := f.buf.ReadRune()
+		r, _, err := f.Buf.ReadRune()
 		if errors.Is(err, io.EOF) {
 			break
 		}
@@ -314,28 +314,28 @@ func (f *Filter) Write(p []byte) (int, error) {
 		}
 
 		if r == '\n' {
-			f.state.line++
-			f.state.position = 0
+			f.State.line++
+			f.State.position = 0
 		} else {
-			f.state.position++
+			f.State.position++
 		}
 
-		if len(f.state.scopes) == 0 {
+		if len(f.State.Scopes) == 0 {
 			break
 		}
 
-		if f.state.inComment {
+		if f.State.inComment {
 			if r == '\n' {
-				f.state.inComment = false
+				f.State.inComment = false
 			}
 
-			if f.state.inComment {
+			if f.State.inComment {
 				continue
 			}
 		}
 
-		if scidx, ok := f.state.topScopeIdx(); ok && f.state.scopes[scidx].scopeType == OtherType && r == '#' {
-			f.state.inComment = true
+		if scidx, ok := f.State.topScopeIdx(); ok && f.State.Scopes[scidx].scopeType == OtherType && r == '#' {
+			f.State.inComment = true
 			continue
 		}
 		err = f.WriteRune(r)
@@ -343,16 +343,16 @@ func (f *Filter) Write(p []byte) (int, error) {
 			return 0, err
 		}
 	}
-	f.buf.Truncate(f.buf.Len())
+	f.Buf.Truncate(f.Buf.Len())
 	return len(p), nil
 }
 
 func (f *Filter) WriteRune(r rune) error {
 
 	for {
-		scidx, ok := f.state.topScopeIdx()
+		scidx, ok := f.State.topScopeIdx()
 		if ok {
-			err := f.state.scopes[scidx].Parse(r, &f.state)
+			err := f.State.Scopes[scidx].Parse(r, &f.State)
 			if errors.Is(err, ErrDontAdvance) {
 				continue
 			}
@@ -365,8 +365,8 @@ func (f *Filter) WriteRune(r rune) error {
 }
 
 func (f *Filter) Close() {
-	f.state.defs.keyFilter.Close(f.state.buf)
-	f.state.buf.WriteRune('}')
+	f.State.defs.keyFilter.Close(f.State.Buf)
+	f.State.Buf.WriteRune('}')
 }
 
 type Scope struct {
@@ -385,37 +385,37 @@ func (s *Scope) Parse(r rune, state *State) error {
 type ParseFunc func(r rune, state *State, scope *Scope) error
 
 type State struct {
-	scopes    []Scope
+	Buf       *bytes.Buffer
+	Scopes    []Scope
 	defs      Defs
 	line      int
 	position  int
 	inComment bool
 	keyData   []rune
 	data      []rune
-	buf       *bytes.Buffer
 }
 
 func (s *State) PushScope(parse ParseFunc, scopeType ScopeType, thisScope *Scope) {
 
 	if thisScope != nil {
-		s.scopes[len(s.scopes)-1] = *thisScope
+		s.Scopes[len(s.Scopes)-1] = *thisScope
 	}
-	s.scopes = append(s.scopes, Scope{parseFunc: parse, scopeType: scopeType})
+	s.Scopes = append(s.Scopes, Scope{parseFunc: parse, scopeType: scopeType})
 }
 
 func (s *State) PopScope() {
-	if len(s.scopes) > 0 {
+	if len(s.Scopes) > 0 {
 		if s.data != nil {
 			s.data = s.data[0:0]
 		}
-		s.scopes = s.scopes[:len(s.scopes)-1]
+		s.Scopes = s.Scopes[:len(s.Scopes)-1]
 	}
 }
 
 func (s *State) topScopeIdx() (int, bool) {
 
-	if len(s.scopes) > 0 {
-		return len(s.scopes) - 1, true
+	if len(s.Scopes) > 0 {
+		return len(s.Scopes) - 1, true
 	}
 	return 0, false
 }
@@ -471,7 +471,7 @@ func ShortUnicode(r rune, state *State, scope *Scope) error {
 	if scope.scopeType == KeyType {
 		state.keyData = append(state.keyData, r)
 	} else {
-		state.buf.WriteRune(r)
+		state.Buf.WriteRune(r)
 	}
 
 	if scope.counter == 4 {
@@ -505,7 +505,7 @@ func Unicode(r rune, state *State, scope *Scope) error {
 	if scope.scopeType == KeyType {
 		state.keyData = append(state.keyData, r)
 	} else {
-		state.buf.WriteRune(r)
+		state.Buf.WriteRune(r)
 	}
 
 	if scope.counter == 6 {
@@ -544,7 +544,7 @@ func QuotedString(r rune, state *State, scope *Scope) error {
 		state.PopScope()
 
 		if scope.scopeType != KeyType {
-			state.buf.WriteRune('"')
+			state.Buf.WriteRune('"')
 		}
 		return nil
 	}
@@ -555,7 +555,7 @@ func QuotedString(r rune, state *State, scope *Scope) error {
 			state.keyData = append(state.keyData, '\\')
 			state.keyData = append(state.keyData, 'U')
 		} else {
-			state.buf.WriteString("\\U")
+			state.Buf.WriteString("\\U")
 		}
 
 		scope.lastToken = OTHERT
@@ -568,7 +568,7 @@ func QuotedString(r rune, state *State, scope *Scope) error {
 			state.keyData = append(state.keyData, '\\')
 			state.keyData = append(state.keyData, 'u')
 		} else {
-			state.buf.WriteString("\\u")
+			state.Buf.WriteString("\\u")
 		}
 
 		scope.lastToken = OTHERT
@@ -584,8 +584,8 @@ func QuotedString(r rune, state *State, scope *Scope) error {
 		if scope.scopeType == KeyType {
 			state.keyData = append(state.keyData, []rune{'\\', r}...)
 		} else {
-			state.buf.WriteRune('\\')
-			state.buf.WriteRune(r)
+			state.Buf.WriteRune('\\')
+			state.Buf.WriteRune(r)
 		}
 		return nil
 	}
@@ -594,7 +594,7 @@ func QuotedString(r rune, state *State, scope *Scope) error {
 	if scope.scopeType == KeyType {
 		state.keyData = append(state.keyData, []rune(js)...)
 	} else {
-		state.buf.WriteString(js)
+		state.Buf.WriteString(js)
 	}
 	return nil
 }
@@ -608,10 +608,10 @@ func TrippleQuotedString(r rune, state *State, scope *Scope) error {
 	if scope.state == DoneState {
 		if r != '"' {
 			if scope.lastToken == QQQQT {
-				state.buf.WriteString(`\"`)
+				state.Buf.WriteString(`\"`)
 			}
 
-			state.buf.WriteRune('"')
+			state.Buf.WriteRune('"')
 			state.PopScope()
 			return ErrDontAdvance
 		}
@@ -621,7 +621,7 @@ func TrippleQuotedString(r rune, state *State, scope *Scope) error {
 			return nil
 		}
 
-		state.buf.WriteString(`\"\""`)
+		state.Buf.WriteString(`\"\""`)
 		state.PopScope()
 		return nil
 	}
@@ -664,14 +664,14 @@ func TrippleQuotedString(r rune, state *State, scope *Scope) error {
 
 	if scope.lastToken == ESCT && r == 'U' {
 		scope.lastToken = OTHERT
-		state.buf.WriteString(`\\U`)
+		state.Buf.WriteString(`\\U`)
 		state.PushScope(Unicode, StringType, scope)
 		return nil
 	}
 
 	if scope.lastToken == ESCT && r == 'u' {
 		scope.lastToken = OTHERT
-		state.buf.WriteString(`\u`)
+		state.Buf.WriteString(`\u`)
 		state.PushScope(ShortUnicode, StringType, scope)
 		return nil
 	}
@@ -684,7 +684,7 @@ func TrippleQuotedString(r rune, state *State, scope *Scope) error {
 
 	if scope.lastToken == ESCT && r == '"' {
 		scope.lastToken = OTHERT
-		state.buf.WriteString(`\"`)
+		state.Buf.WriteString(`\"`)
 		return nil
 	}
 
@@ -709,19 +709,19 @@ func TrippleQuotedString(r rune, state *State, scope *Scope) error {
 	}
 
 	if scope.lastToken == ESCT {
-		state.buf.WriteRune('/')
+		state.Buf.WriteRune('/')
 	}
 
 	if scope.lastToken == QT {
-		state.buf.WriteString(`\"`)
+		state.Buf.WriteString(`\"`)
 	}
 
 	if scope.lastToken == QQT {
-		state.buf.WriteString(`\"\"`)
+		state.Buf.WriteString(`\"\"`)
 	}
 
 	scope.lastToken = OTHERT
-	state.buf.WriteString(toJSONString(r))
+	state.Buf.WriteString(toJSONString(r))
 	return nil
 }
 
@@ -735,7 +735,7 @@ func LiteralString(r rune, state *State, scope *Scope) error {
 		state.PopScope()
 
 		if scope.scopeType != KeyType {
-			state.buf.WriteRune('"')
+			state.Buf.WriteRune('"')
 		}
 		return nil
 	}
@@ -744,7 +744,7 @@ func LiteralString(r rune, state *State, scope *Scope) error {
 	if scope.scopeType == KeyType {
 		state.keyData = append(state.keyData, []rune(js)...)
 	} else {
-		state.buf.WriteString(js)
+		state.Buf.WriteString(js)
 	}
 	return nil
 }
@@ -754,10 +754,10 @@ func MultiLineLiteralString(r rune, state *State, scope *Scope) error {
 	if scope.state == DoneState {
 		if r != '\'' {
 			if scope.lastToken == SQQQQT {
-				state.buf.WriteRune('\'')
+				state.Buf.WriteRune('\'')
 			}
 
-			state.buf.WriteRune('"')
+			state.Buf.WriteRune('"')
 			state.PopScope()
 			return ErrDontAdvance
 		}
@@ -767,7 +767,7 @@ func MultiLineLiteralString(r rune, state *State, scope *Scope) error {
 			return nil
 		}
 
-		state.buf.WriteString(`''"`)
+		state.Buf.WriteString(`''"`)
 		state.PopScope()
 		return nil
 	}
@@ -798,11 +798,11 @@ func MultiLineLiteralString(r rune, state *State, scope *Scope) error {
 	}
 
 	if scope.lastToken == SQT {
-		state.buf.WriteRune('\'')
+		state.Buf.WriteRune('\'')
 	}
 
 	scope.lastToken = OTHERT
-	state.buf.WriteString(toJSONString(r))
+	state.Buf.WriteString(toJSONString(r))
 	return nil
 }
 
@@ -819,7 +819,7 @@ func PrefixNumber(ranges []*unicode.RangeTable) ParseFunc {
 				return parseError(state, `invalid character at number end`)
 			}
 			state.PopScope()
-			state.buf.WriteRune('"')
+			state.Buf.WriteRune('"')
 			return ErrDontAdvance
 		}
 
@@ -836,7 +836,7 @@ func PrefixNumber(ranges []*unicode.RangeTable) ParseFunc {
 		}
 
 		scope.lastToken = DIGITT
-		state.buf.WriteRune(unicode.ToUpper(r))
+		state.Buf.WriteRune(unicode.ToUpper(r))
 		return nil
 	}
 }
@@ -871,7 +871,7 @@ func floatDispatchExp(r rune, state *State, scope *Scope) (bool, error) {
 			return false, parseError(state, `invalid 'e' in float`)
 		}
 		scope.lastToken = EXPT
-		state.buf.WriteRune(r)
+		state.Buf.WriteRune(r)
 		scope.state = AfterExpState
 		return true, nil
 	}
@@ -884,7 +884,7 @@ func floatDispatchDigit(r rune, state *State, scope *Scope) error {
 	}
 	scope.lastToken = DIGITT
 	scope.counter++
-	state.buf.WriteRune(r)
+	state.Buf.WriteRune(r)
 	return nil
 }
 
@@ -917,13 +917,13 @@ func Float(firstState ScopeState, firstToken Token, counter int) ParseFunc {
 			ok, err := floatDispatchSign(r, state, scope)
 			if ok || err != nil {
 				if r == '-' {
-					state.buf.WriteRune(r)
+					state.Buf.WriteRune(r)
 				}
 				return err
 			}
 
 			if r == '0' && (scope.lastToken == OTHERT || scope.lastToken == SIGNT) {
-				state.buf.WriteRune('0')
+				state.Buf.WriteRune('0')
 				scope.counter++
 				scope.lastToken = DIGITT
 				scope.state = AfterInitialZeroState
@@ -935,7 +935,7 @@ func Float(firstState ScopeState, firstToken Token, counter int) ParseFunc {
 					return parseError(state, `invalid '.' in float`)
 				}
 				scope.lastToken = DOTT
-				state.buf.WriteRune('.')
+				state.Buf.WriteRune('.')
 				scope.state = AfterDotState
 				return nil
 			}
@@ -956,7 +956,7 @@ func Float(firstState ScopeState, firstToken Token, counter int) ParseFunc {
 
 			if r == '.' {
 				scope.lastToken = DOTT
-				state.buf.WriteRune('.')
+				state.Buf.WriteRune('.')
 				scope.state = AfterDotState
 				return nil
 			}
@@ -986,7 +986,7 @@ func Float(firstState ScopeState, firstToken Token, counter int) ParseFunc {
 
 			ok, err := floatDispatchSign(r, state, scope)
 			if ok || err != nil {
-				state.buf.WriteRune(r)
+				state.Buf.WriteRune(r)
 				return err
 			}
 
@@ -1042,7 +1042,7 @@ func Time(offset int, val []rune, uptoMinutes bool) ParseFunc {
 		if scope.counter == 0 {
 			scope.counter += offset
 			state.data = val
-			state.buf.WriteString(string(val))
+			state.Buf.WriteString(string(val))
 		}
 
 		if scope.counter > 8 {
@@ -1091,7 +1091,7 @@ func Time(offset int, val []rune, uptoMinutes bool) ParseFunc {
 			return ErrDontAdvance
 		}
 
-		state.buf.WriteRune(r)
+		state.Buf.WriteRune(r)
 
 		if scope.counter == 2 || scope.counter == 5 {
 			if r != ':' {
@@ -1118,12 +1118,12 @@ func Date(offset int, val []rune) ParseFunc {
 
 			if r == 'Z' {
 				state.PopScope()
-				state.buf.WriteString(`Z`)
+				state.Buf.WriteString(`Z`)
 				return nil
 			}
 
 			if r == '-' || r == '+' {
-				state.buf.WriteRune(r)
+				state.Buf.WriteRune(r)
 				state.PopScope()
 				state.PushScope(Time(0, nil, true), OtherType, nil)
 				return nil
@@ -1136,7 +1136,7 @@ func Date(offset int, val []rune) ParseFunc {
 		if scope.state == InitState {
 
 			if r == ' ' || r == 'T' {
-				state.buf.WriteRune(r)
+				state.Buf.WriteRune(r)
 				scope.state = AfterTState
 				state.PushScope(Time(0, nil, false), OtherType, scope)
 				return nil
@@ -1149,7 +1149,7 @@ func Date(offset int, val []rune) ParseFunc {
 		if scope.counter == 0 {
 			scope.counter += offset
 			state.data = val
-			state.buf.WriteString(string(val))
+			state.Buf.WriteString(string(val))
 		}
 
 		if scope.counter < 4 {
@@ -1167,7 +1167,7 @@ func Date(offset int, val []rune) ParseFunc {
 			state.data = append(state.data, r)
 		}
 
-		state.buf.WriteRune(r)
+		state.Buf.WriteRune(r)
 
 		if scope.counter == 4 {
 			if r != '-' {
@@ -1247,8 +1247,8 @@ func InlineTable() ParseFunc {
 				return parseError(state, `inline table invalid comma at end`)
 			}
 
-			defs.keyFilter.Close(state.buf)
-			state.buf.WriteRune('}')
+			defs.keyFilter.Close(state.Buf)
+			state.Buf.WriteRune('}')
 			return nil
 		}
 
@@ -1276,7 +1276,7 @@ func InlineArray(r rune, state *State, scope *Scope) error {
 
 	if r == ']' {
 		state.PopScope()
-		state.buf.WriteRune(']')
+		state.Buf.WriteRune(']')
 		return nil
 	}
 
@@ -1290,7 +1290,7 @@ func InlineArray(r rune, state *State, scope *Scope) error {
 		if scope.lastToken != COMT {
 			return parseError(state, `inline table comma not found`)
 		}
-		state.buf.WriteRune(',')
+		state.Buf.WriteRune(',')
 	}
 	scope.lastToken = OTHERT
 	scope.state = AfterValueState
@@ -1321,7 +1321,7 @@ func DateOrTime(hasZeroPrefix bool) ParseFunc {
 
 		if scope.state == AfterValueState {
 
-			state.buf.WriteString(`"`)
+			state.Buf.WriteString(`"`)
 			state.PopScope()
 			return ErrDontAdvance
 		}
@@ -1333,7 +1333,7 @@ func DateOrTime(hasZeroPrefix bool) ParseFunc {
 
 		if r == ':' && len(state.data) == 2 {
 
-			state.buf.WriteString(`"`)
+			state.Buf.WriteString(`"`)
 			scope.state = AfterValueState
 			state.PushScope(Time(2, state.data, false), OtherType, scope)
 			return ErrDontAdvance
@@ -1341,7 +1341,7 @@ func DateOrTime(hasZeroPrefix bool) ParseFunc {
 
 		if r == '-' && len(state.data) == 4 {
 
-			state.buf.WriteString(`"`)
+			state.Buf.WriteString(`"`)
 			scope.state = AfterValueState
 			state.PushScope(Date(4, state.data), OtherType, scope)
 			return ErrDontAdvance
@@ -1372,11 +1372,11 @@ func SignedNumber(r rune, state *State, scope *Scope) error {
 
 	if r == 'n' {
 
-		state.buf.WriteRune('"')
+		state.Buf.WriteRune('"')
 		if len(state.data) == 1 {
-			state.buf.WriteRune(state.data[0])
+			state.Buf.WriteRune(state.data[0])
 		}
-		state.buf.WriteString(`nan"`)
+		state.Buf.WriteString(`nan"`)
 
 		state.PopScope()
 		state.PushScope(LiteralValue(nanRunes), OtherType, nil)
@@ -1385,11 +1385,11 @@ func SignedNumber(r rune, state *State, scope *Scope) error {
 
 	if r == 'i' {
 
-		state.buf.WriteRune('"')
+		state.Buf.WriteRune('"')
 		if len(state.data) == 1 {
-			state.buf.WriteRune(state.data[0])
+			state.Buf.WriteRune(state.data[0])
 		}
-		state.buf.WriteString(`inf"`)
+		state.Buf.WriteString(`inf"`)
 
 		state.PopScope()
 		state.PushScope(LiteralValue(infRunes), OtherType, nil)
@@ -1399,7 +1399,7 @@ func SignedNumber(r rune, state *State, scope *Scope) error {
 	firstToken := OTHERT
 	if len(state.data) == 1 {
 		if state.data[0] == '-' {
-			state.buf.WriteRune('-')
+			state.Buf.WriteRune('-')
 		}
 		firstToken = SIGNT
 	}
@@ -1413,7 +1413,7 @@ func NumberDateOrTime(r rune, state *State, scope *Scope) error {
 
 	if scope.state == AfterValueState {
 
-		state.buf.WriteString(`"`)
+		state.Buf.WriteString(`"`)
 		state.PopScope()
 		return ErrDontAdvance
 	}
@@ -1437,7 +1437,7 @@ func NumberDateOrTime(r rune, state *State, scope *Scope) error {
 			return parseError(state, `invalid character in number`)
 		}
 
-		state.buf.WriteString(string(state.data))
+		state.Buf.WriteString(string(state.data))
 		state.PopScope()
 		state.PushScope(Float(OtherState, DIGITT, len(state.data)), OtherType, nil)
 		return ErrDontAdvance
@@ -1445,7 +1445,7 @@ func NumberDateOrTime(r rune, state *State, scope *Scope) error {
 
 	if r == ':' && len(state.data) == 2 {
 
-		state.buf.WriteString(`"`)
+		state.Buf.WriteString(`"`)
 		scope.state = AfterValueState
 		state.PushScope(Time(2, state.data, false), OtherType, scope)
 		return ErrDontAdvance
@@ -1454,7 +1454,7 @@ func NumberDateOrTime(r rune, state *State, scope *Scope) error {
 	if r == '-' && len(state.data) == 4 {
 
 		scope.state = AfterValueState
-		state.buf.WriteString(`"`)
+		state.Buf.WriteString(`"`)
 		state.PushScope(Date(4, state.data), OtherType, scope)
 		return ErrDontAdvance
 	}
@@ -1472,36 +1472,36 @@ func NumberDateOrTime(r rune, state *State, scope *Scope) error {
 func Zero(r rune, state *State, scope *Scope) error {
 
 	if unicode.IsSpace(r) || r == ',' || r == ']' || r == '}' {
-		state.buf.WriteString(`0`)
+		state.Buf.WriteString(`0`)
 		state.PopScope()
 		return ErrDontAdvance
 	}
 
 	if r == 'x' {
 		state.PopScope()
-		state.buf.WriteString(`"0x`)
+		state.Buf.WriteString(`"0x`)
 		state.PushScope(PrefixNumber(hexRanges), OtherType, nil)
 		return nil
 	}
 
 	if r == 'o' {
 		state.PopScope()
-		state.buf.WriteString(`"0o`)
+		state.Buf.WriteString(`"0o`)
 		state.PushScope(PrefixNumber(octalRanges), OtherType, nil)
 		return nil
 	}
 
 	if r == 'b' {
 		state.PopScope()
-		state.buf.WriteString(`"0b`)
+		state.Buf.WriteString(`"0b`)
 		state.PushScope(PrefixNumber(binRanges), OtherType, nil)
 		return nil
 	}
 
 	if r == 'e' || r == 'E' {
 		state.PopScope()
-		state.buf.WriteRune('0')
-		state.buf.WriteRune(r)
+		state.Buf.WriteRune('0')
+		state.Buf.WriteRune(r)
 		state.PushScope(Float(AfterExpState, OTHERT, 2), OtherType, nil)
 		return nil
 	}
@@ -1514,7 +1514,7 @@ func Zero(r rune, state *State, scope *Scope) error {
 
 	if r == '.' {
 		state.PopScope()
-		state.buf.WriteString("0.")
+		state.Buf.WriteString("0.")
 		state.PushScope(Float(AfterDotState, OTHERT, 2), OtherType, nil)
 		return nil
 	}
@@ -1533,7 +1533,7 @@ func Value(r rune, state *State, scope *Scope) error {
 	if scope.lastToken == QT && r != '"' {
 		state.PopScope()
 		state.PushScope(QuotedString, StringType, nil)
-		state.buf.WriteRune('"')
+		state.Buf.WriteRune('"')
 		return ErrDontAdvance
 	}
 
@@ -1544,14 +1544,14 @@ func Value(r rune, state *State, scope *Scope) error {
 
 	if scope.lastToken == QQT && r != '"' {
 		state.PopScope()
-		state.buf.WriteString(`""`)
+		state.Buf.WriteString(`""`)
 		return ErrDontAdvance
 	}
 
 	if scope.lastToken == QQT && r == '"' {
 		state.PopScope()
 		state.PushScope(TrippleQuotedString, StringType, nil)
-		state.buf.WriteRune('"')
+		state.Buf.WriteRune('"')
 		return nil
 	}
 
@@ -1564,7 +1564,7 @@ func Value(r rune, state *State, scope *Scope) error {
 	if scope.lastToken == SQT && r != '\'' {
 		state.PopScope()
 		state.PushScope(LiteralString, StringType, nil)
-		state.buf.WriteRune('"')
+		state.Buf.WriteRune('"')
 		return ErrDontAdvance
 	}
 
@@ -1575,14 +1575,14 @@ func Value(r rune, state *State, scope *Scope) error {
 
 	if scope.lastToken == SQQT && r != '\'' {
 		state.PopScope()
-		state.buf.WriteString(`""`)
+		state.Buf.WriteString(`""`)
 		return ErrDontAdvance
 	}
 
 	if scope.lastToken == SQQT && r == '\'' {
 		state.PopScope()
 		state.PushScope(MultiLineLiteralString, StringType, nil)
-		state.buf.WriteRune('"')
+		state.Buf.WriteRune('"')
 		return nil
 	}
 
@@ -1593,28 +1593,28 @@ func Value(r rune, state *State, scope *Scope) error {
 	if r == 't' {
 		state.PopScope()
 		state.PushScope(LiteralValue(trueRunes), OtherType, nil)
-		state.buf.WriteString(`true`)
+		state.Buf.WriteString(`true`)
 		return ErrDontAdvance
 	}
 
 	if r == 'f' {
 		state.PopScope()
 		state.PushScope(LiteralValue(falseRunes), OtherType, nil)
-		state.buf.WriteString(`false`)
+		state.Buf.WriteString(`false`)
 		return ErrDontAdvance
 	}
 
 	if r == '{' {
 		state.PopScope()
 		state.PushScope(InlineTable(), OtherType, nil)
-		state.buf.WriteRune('{')
+		state.Buf.WriteRune('{')
 		return nil
 	}
 
 	if r == '[' {
 		state.PopScope()
 		state.PushScope(InlineArray, OtherType, nil)
-		state.buf.WriteRune('[')
+		state.Buf.WriteRune('[')
 		return nil
 	}
 
@@ -1739,9 +1739,9 @@ func KeyValue(defineFunc DefineFunc, pushFilter KeyFilterPushFunc) ParseFunc {
 
 				scope.state = AfterValueState
 
-				pushFilter(scope.key, BasicVar, state.buf)
+				pushFilter(scope.key, BasicVar, state.Buf)
 
-				state.buf.WriteString(`"` + scope.key[len(scope.key)-1] + `":`)
+				state.Buf.WriteString(`"` + scope.key[len(scope.key)-1] + `":`)
 
 				state.PushScope(Value, OtherType, scope)
 				return nil
@@ -1805,7 +1805,7 @@ func Table(r rune, state *State, scope *Scope) error {
 		if !ok {
 			return parseError(state, `table attempt to redefine a key`)
 		}
-		state.defs.keyFilter.Push(scope.key, TableVar, state.buf)
+		state.defs.keyFilter.Push(scope.key, TableVar, state.Buf)
 
 		scope.state = AfterTableState
 		return nil
@@ -1878,7 +1878,7 @@ func Array(r rune, state *State, scope *Scope) error {
 		if !ok {
 			return parseError(state, `array attempt to redefine a key`)
 		}
-		state.defs.keyFilter.Push(scope.key, ArrayVar, state.buf)
+		state.defs.keyFilter.Push(scope.key, ArrayVar, state.Buf)
 
 		scope.state = AfterArrayState
 		return nil
