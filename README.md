@@ -46,6 +46,6 @@ These benchmarks are by no means thorough and only hint at an estimate.
 
 ```
 Parser Throughput    7.05 MB/s
-Memory Throughput  	 100.03 MB/s
+Memory Throughput    100.03 MB/s
 ```
 
