@@ -1,6 +1,7 @@
 package toml
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 
@@ -12,6 +13,7 @@ type Reader struct {
 	filter     *toml.Filter
 	filterDone bool
 	reader     io.Reader
+	out        *bytes.Buffer
 	readerDone bool
 }
 
@@ -20,8 +22,10 @@ type Reader struct {
 // its underlying wrapped io.Reader, parses and
 // encodes it as a JSON stream.
 func New(reader io.Reader) *Reader {
+	var out bytes.Buffer
 	return &Reader{
-		filter: toml.NewFilter(),
+		out:    &out,
+		filter: toml.NewFilter(&out),
 		reader: reader,
 	}
 }
@@ -29,7 +33,7 @@ func New(reader io.Reader) *Reader {
 func (r *Reader) Read(p []byte) (int, error) {
 
 	if !r.readerDone {
-		for r.filter.State.Buf.Len() < len(p) {
+		for r.out.Len() < len(p) {
 			n, err := r.reader.Read(p)
 			_, err = r.filter.Write(p[:n])
 			if err != nil {
@@ -54,7 +58,7 @@ func (r *Reader) Read(p []byte) (int, error) {
 		r.filter.Close()
 	}
 
-	if r.readerDone && r.filterDone && len(r.filter.State.Buf.Bytes()) == 0 {
+	if r.readerDone && r.filterDone && len(r.out.Bytes()) == 0 {
 		if len(r.filter.State.Scopes) != 0 {
 			return 0, fmt.Errorf(`invalid EOF`)
 		}
@@ -62,11 +66,11 @@ func (r *Reader) Read(p []byte) (int, error) {
 	}
 
 	ln := len(p)
-	if len(r.filter.State.Buf.Bytes()) < ln {
-		ln = len(r.filter.State.Buf.Bytes())
+	if len(r.out.Bytes()) < ln {
+		ln = len(r.out.Bytes())
 	}
 
-	n, err := r.filter.State.Buf.Read(p)
-	r.filter.State.Buf.Truncate(len(r.filter.State.Buf.Bytes()))
+	n, err := r.out.Read(p)
+	r.out.Truncate(len(r.out.Bytes()))
 	return n, err
 }

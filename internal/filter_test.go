@@ -641,7 +641,8 @@ func TestParse(t *testing.T) {
 		t.Log(`idx`, idx, `doc`, ts.doc)
 
 		buf := bytes.NewBufferString(ts.doc + "\n")
-		f := NewFilter()
+		var out bytes.Buffer
+		f := NewFilter(&out)
 
 		_, err := io.Copy(f, buf)
 
@@ -659,9 +660,9 @@ func TestParse(t *testing.T) {
 		require.Equal(t, 0, len(f.State.Scopes))
 		f.Close()
 
-		t.Log(`json`, string(f.State.Buf.Bytes()))
+		t.Log(`json`, string(out.Bytes()))
 
-		ok := json.Valid(f.State.Buf.Bytes())
+		ok := json.Valid(out.Bytes())
 		require.True(t, ok)
 	}
 }
@@ -728,7 +729,8 @@ func TestUnicode(t *testing.T) {
 			if ts.short {
 				pf = ShortUnicode
 			}
-			state := State{Buf: &bytes.Buffer{}}
+			var out bytes.Buffer
+			state := State{Buf: &out}
 			state.PushScope(pf, StringType, nil)
 			scidx, ok := state.topScopeIdx()
 			assert.True(t, ok)
@@ -753,9 +755,9 @@ func TestUnicode(t *testing.T) {
 			require.NoError(t, err)
 
 			if ts.expectedCode != `` {
-				assert.Equal(t, ts.expectedCode, string(state.Buf.Bytes()))
+				assert.Equal(t, ts.expectedCode, string(out.Bytes()))
 			} else {
-				assert.Equal(t, ts.code, string(state.Buf.Bytes()))
+				assert.Equal(t, ts.code, string(out.Bytes()))
 			}
 		})
 	}
@@ -822,7 +824,8 @@ func TestPrefixNumber(t *testing.T) {
 
 		var pf ParseFunc
 		pf = PrefixNumber(ts.ranges)
-		state := State{Buf: &bytes.Buffer{}}
+		var out bytes.Buffer
+		state := State{Buf: &out}
 		state.PushScope(pf, OtherType, nil)
 		scidx, ok := state.topScopeIdx()
 		assert.True(t, ok)
@@ -845,7 +848,7 @@ func TestPrefixNumber(t *testing.T) {
 			continue
 		}
 		require.NoError(t, err)
-		assert.Equal(t, ts.expectedNumber, string(state.Buf.Bytes()))
+		assert.Equal(t, ts.expectedNumber, string(out.Bytes()))
 	}
 }
 
@@ -942,7 +945,8 @@ func TestFloat(t *testing.T) {
 
 		t.Run(ts.float, func(t *testing.T) {
 
-			state := State{Buf: &bytes.Buffer{}}
+			var out bytes.Buffer
+			state := State{Buf: &out}
 			state.PushScope(Float(OtherState, OTHERT, 0), OtherType, nil)
 			scidx, ok := state.topScopeIdx()
 			assert.True(t, ok)
@@ -974,7 +978,7 @@ func TestFloat(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, ts.expectedFloat, string(state.Buf.Bytes()))
+			assert.Equal(t, ts.expectedFloat, string(out.Bytes()))
 		})
 	}
 }
@@ -1193,7 +1197,8 @@ xx"""`,
 		t.Log(`idx`, idx, `doc`, ts.doc)
 
 		buf := bytes.NewBufferString(ts.doc + "\n")
-		f := NewFilter()
+		var out bytes.Buffer
+		f := NewFilter(&out)
 
 		_, err := io.Copy(f, buf)
 
@@ -1211,8 +1216,8 @@ xx"""`,
 		assert.Equal(t, 0, len(f.State.Scopes))
 		f.Close()
 
-		ok := json.Valid(f.State.Buf.Bytes())
+		ok := json.Valid(out.Bytes())
 		assert.True(t, ok)
-		assert.Equal(t, ts.expected, string(f.State.Buf.Bytes()))
+		assert.Equal(t, ts.expected, string(out.Bytes()))
 	}
 }

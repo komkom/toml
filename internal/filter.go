@@ -276,6 +276,11 @@ var (
 
 type ScopeType string
 
+type Writer interface {
+	WriteString(s string) (n int, err error)
+	WriteRune(s rune) (n int, err error)
+}
+
 var (
 	OtherType  ScopeType = `other`
 	StringType ScopeType = `string`
@@ -287,10 +292,10 @@ type Filter struct {
 	Buf   *bytes.Buffer
 }
 
-func NewFilter() *Filter {
-
+func NewFilter(writer Writer) *Filter {
+	writer.WriteString(`{`)
 	state := State{
-		Buf:  bytes.NewBufferString(`{`),
+		Buf:  writer,
 		defs: MakeDefs(),
 	}
 
@@ -385,7 +390,7 @@ func (s *Scope) Parse(r rune, state *State) error {
 type ParseFunc func(r rune, state *State, scope *Scope) error
 
 type State struct {
-	Buf       *bytes.Buffer
+	Buf       Writer
 	Scopes    []Scope
 	defs      Defs
 	line      int
