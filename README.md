@@ -4,7 +4,7 @@
 # toml
 A Toml parser and JSON encoder.
 
-The parser is compliant with the toml specs 1.0.0-rc3.
+TOML 1.0 compliant parser
 
 [give it a try](https://komkom.github.io/toml/)
 
