@@ -16,7 +16,7 @@ type Reader struct {
 }
 
 // New wraps an io.Reader around an io.Reader.
-// Reading data from this Reader reads data form
+// Reading data from this Reader reads data from
 // its underlying wrapped io.Reader, parses and
 // encodes it as a JSON stream.
 func New(reader io.Reader) *Reader {
