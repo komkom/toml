@@ -764,55 +764,65 @@ func TestUnicode(t *testing.T) {
 func TestPrefixNumber(t *testing.T) {
 
 	tests := []struct {
+		numberType     NumberType
 		number         string
 		expectedNumber string
 		ranges         []*unicode.RangeTable
 		err            string
 	}{
 		{
-			number:         `D7FFD`,
-			expectedNumber: `D7FFD`,
+			numberType:     HexNumberType,
+			number:         `D7FFD `,
+			expectedNumber: `884733`,
 			ranges:         hexRanges,
 		},
 		{
-			number:         `D7FFe`,
-			expectedNumber: `D7FFE`,
+			numberType:     HexNumberType,
+			number:         `D7FFe `,
+			expectedNumber: `884734`,
 			ranges:         hexRanges,
 		},
 		{
-			number: ` `,
-			ranges: hexRanges,
-			err:    `empty number`,
+			numberType: HexNumberType,
+			number:     ` `,
+			ranges:     hexRanges,
+			err:        `empty number`,
 		},
 		{
-			number:         `1467`,
-			expectedNumber: `1467`,
+			numberType:     OctalNumberType,
+			number:         `1467 `,
+			expectedNumber: `823`,
 			ranges:         octalRanges,
 		},
 		{
-			number: `1468`,
-			ranges: octalRanges,
-			err:    `invalid character in number`,
+			numberType: OctalNumberType,
+			number:     `1468 `,
+			ranges:     octalRanges,
+			err:        `invalid character in number`,
 		},
 		{
-			number: ` `,
-			ranges: octalRanges,
-			err:    `empty number`,
+			numberType: OctalNumberType,
+			number:     ` `,
+			ranges:     octalRanges,
+			err:        `empty number`,
 		},
 		{
-			number:         `101001100`,
-			expectedNumber: `101001100`,
+			numberType:     BinNumberType,
+			number:         `101001100 `,
+			expectedNumber: `332`,
 			ranges:         binRanges,
 		},
 		{
-			number: `1002`,
-			ranges: binRanges,
-			err:    `invalid character in number`,
+			numberType: BinNumberType,
+			number:     `1002 `,
+			ranges:     binRanges,
+			err:        `invalid character in number`,
 		},
 		{
-			number: ` `,
-			ranges: binRanges,
-			err:    `empty number`,
+			numberType: BinNumberType,
+			number:     ` `,
+			ranges:     binRanges,
+			err:        `empty number`,
 		},
 	}
 
@@ -821,7 +831,7 @@ func TestPrefixNumber(t *testing.T) {
 		t.Log(`number`, ts.number)
 
 		var pf ParseFunc
-		pf = PrefixNumber(ts.ranges)
+		pf = PrefixNumber(ts.ranges, ts.numberType)
 		state := State{Buf: &bytes.Buffer{}}
 		state.PushScope(pf, OtherType, nil)
 		scidx, ok := state.topScopeIdx()
@@ -844,6 +854,11 @@ func TestPrefixNumber(t *testing.T) {
 			assert.Contains(t, err.Error(), ts.err)
 			continue
 		}
+
+		if errors.Is(err, ErrDontAdvance) {
+			err = nil
+		}
+
 		require.NoError(t, err)
 		assert.Equal(t, ts.expectedNumber, string(state.Buf.Bytes()))
 	}
@@ -1176,15 +1191,15 @@ xx"""`,
 		},
 		{
 			doc:      `key = 0xD7FFD`,
-			expected: `{"key":"0xD7FFD"}`,
+			expected: `{"key":884733}`,
 		},
 		{
 			doc:      `key = 0o12345`,
-			expected: `{"key":"0o12345"}`,
+			expected: `{"key":5349}`,
 		},
 		{
-			doc:      `key = 0o1100101`,
-			expected: `{"key":"0o1100101"}`,
+			doc:      `key = 0b1100101`,
+			expected: `{"key":101}`,
 		},
 	}
 

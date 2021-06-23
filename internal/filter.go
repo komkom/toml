@@ -282,6 +282,14 @@ var (
 	KeyType    ScopeType = `key`
 )
 
+type NumberType int
+
+const (
+	BinNumberType NumberType = iota
+	OctalNumberType
+	HexNumberType
+)
+
 type Filter struct {
 	State State
 	Buf   *bytes.Buffer
@@ -806,7 +814,7 @@ func MultiLineLiteralString(r rune, state *State, scope *Scope) error {
 	return nil
 }
 
-func PrefixNumber(ranges []*unicode.RangeTable) ParseFunc {
+func PrefixNumber(ranges []*unicode.RangeTable, numberType NumberType) ParseFunc {
 	return func(r rune, state *State, scope *Scope) error {
 
 		if scope.state != InitState && unicode.IsSpace(r) {
@@ -819,7 +827,7 @@ func PrefixNumber(ranges []*unicode.RangeTable) ParseFunc {
 				return parseError(state, `invalid character at number end`)
 			}
 			state.PopScope()
-			state.Buf.WriteRune('"')
+			state.Buf.WriteString(strconv.Itoa(scope.counter))
 			return ErrDontAdvance
 		}
 
@@ -836,7 +844,13 @@ func PrefixNumber(ranges []*unicode.RangeTable) ParseFunc {
 		}
 
 		scope.lastToken = DIGITT
-		state.Buf.WriteRune(unicode.ToUpper(r))
+
+		var err error
+		scope.counter, err = addNumber(r, scope.counter, numberType)
+		if err != nil {
+			return parseError(state, `addNumber failed, invalid character in number`)
+		}
+
 		return nil
 	}
 }
@@ -1479,22 +1493,19 @@ func Zero(r rune, state *State, scope *Scope) error {
 
 	if r == 'x' {
 		state.PopScope()
-		state.Buf.WriteString(`"0x`)
-		state.PushScope(PrefixNumber(hexRanges), OtherType, nil)
+		state.PushScope(PrefixNumber(hexRanges, HexNumberType), OtherType, nil)
 		return nil
 	}
 
 	if r == 'o' {
 		state.PopScope()
-		state.Buf.WriteString(`"0o`)
-		state.PushScope(PrefixNumber(octalRanges), OtherType, nil)
+		state.PushScope(PrefixNumber(octalRanges, OctalNumberType), OtherType, nil)
 		return nil
 	}
 
 	if r == 'b' {
 		state.PopScope()
-		state.Buf.WriteString(`"0b`)
-		state.PushScope(PrefixNumber(binRanges), OtherType, nil)
+		state.PushScope(PrefixNumber(binRanges, BinNumberType), OtherType, nil)
 		return nil
 	}
 
