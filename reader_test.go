@@ -95,11 +95,11 @@ func TestReader(t *testing.T) {
 		},
 		{
 			doc:      `hex3 = 0x123_123`,
-			expected: `{"hex3":"0x123123"}`,
+			expected: `{"hex3":1192227}`,
 		},
 		{
 			doc:      `hex3 = 0xdead_beef`,
-			expected: `{"hex3":"0xDEADBEEF"}`,
+			expected: `{"hex3":3735928559}`,
 		},
 		{
 			doc:      `flt9 = -0e0`,
