@@ -3,9 +3,12 @@ package toml
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -26,7 +29,7 @@ func TestReader(t *testing.T) {
 		},
 		{
 			doc: `a.'b.c.d'.d=2
-																	a.b.c.d=2`,
+																						a.b.c.d=2`,
 			expected: `{"a":{"b.c.d":{"d":2},"b":{"c":{"d":2}}}}`,
 		},
 		{
@@ -131,17 +134,17 @@ func TestReader(t *testing.T) {
 		},
 		{
 			doc: `key = """a b c \
-									ooo"""`,
+														ooo"""`,
 			expected: `{"key":"a b c ooo"}`,
 		},
 		{
 			doc: `key = """value  \
-					                        """`,
+											                        """`,
 			expected: `{"key":"value  "}`,
 		},
 		{
 			doc: `[x.y.z.w] # for this to work
-					[x]`,
+										[x]`,
 			expected: `{"x":{"y":{"z":{"w":{}}}}}`,
 		},
 		{
@@ -150,17 +153,29 @@ func TestReader(t *testing.T) {
 		},
 		{
 			doc:      `key="""value\r\n"""`,
-			expected: `{"key":"value/r/n"}`,
+			expected: `{"key":"value\r\n"}`,
 		},
 		{
 			doc: `[[arr.x]]
-				[arr.x.table]
-				[[arr.x]]
-				[arr.x.table]
-				[x]
-				[[arr.x]]
-				`,
+									[arr.x.table]
+									[[arr.x]]
+									[arr.x.table]
+									[x]
+									[[arr.x]]
+									`,
 			expected: `{"arr":{"x":[{"table":{}},{"table":{}}]},"x":{},"arr":{"x":[{}]}}`,
+		},
+		{
+			doc:      `multiline_end_esc = """When will it end? \"""...""\" should be here\""""`,
+			expected: `{"multiline_end_esc":"When will it end? \"\"\"...\"\"\" should be here\""}`,
+		},
+		{
+			doc:      `multiline_not_unicode = """\\u0041"""`,
+			expected: `{"multiline_not_unicode":"\\u0041"}`,
+		},
+		{
+			doc:      `winpath  = 'C:\Users\nodejs\templates'`,
+			expected: `{"winpath":"C:\\Users\\nodejs\\templates"}`,
 		},
 	}
 
@@ -239,6 +254,8 @@ func TestSpecs_invalid(t *testing.T) {
 			strings.HasSuffix(path, `comment-control-3.toml`) ||
 			strings.HasSuffix(path, `comment-control-2.toml`) ||
 			strings.HasSuffix(path, `comment-control-1.toml`) ||
+
+			strings.HasSuffix(path, `spec-tests/errors/string-basic-out-of-range-unicode-escape-2.toml`) ||
 			strings.HasSuffix(path, `string-basic-multiline-out-of-range-unicode-escape-2.toml`) {
 			return nil
 		}
@@ -267,4 +284,219 @@ func TestSpecs_invalid(t *testing.T) {
 
 		}
 	}
+}
+
+func TestSpecTests_invalid(t *testing.T) {
+
+	var counter int
+	var failed int
+	filepath.Walk(`spec-tests/tests/invalid`, func(path string, info os.FileInfo, e error) error {
+
+		counter++
+		if info.IsDir() || !strings.HasSuffix(info.Name(), `.toml`) {
+			return nil
+		}
+
+		data, err := os.ReadFile(path)
+		require.NoError(t, err)
+		reader := bytes.NewReader(data)
+		_, err = io.ReadAll(New(reader))
+		if err == nil {
+			failed++
+			fmt.Printf("path_toml = %+v\n", path)
+		}
+
+		return nil
+	})
+	assert.Equal(t, 221, counter)
+	assert.Equal(t, 7, failed)
+}
+
+func TestSpecTests_valid(t *testing.T) {
+
+	var counter int
+	var failed int
+	filepath.Walk(`spec-tests/tests/valid`, func(path string, info os.FileInfo, e error) error {
+
+		counter++
+		if info.IsDir() || !strings.HasSuffix(info.Name(), `.toml`) {
+			return nil
+		}
+
+		data, err := os.ReadFile(path)
+		require.NoError(t, err)
+		reader := bytes.NewReader(data)
+		_, err = io.ReadAll(New(reader))
+		if err != nil {
+			failed++
+			fmt.Printf("path_toml = %+v %v\n", path, err)
+		}
+
+		return nil
+	})
+	assert.Equal(t, 208, counter)
+	assert.Equal(t, 2, failed)
+}
+
+func TestSpec_compareJSON(t *testing.T) {
+
+	exclude := map[string]bool{
+		`spec-tests/tests/valid/comment/everywhere.json`:    true,
+		`spec-tests/tests/valid/datetime/datetime.json`:     true,
+		`spec-tests/tests/valid/datetime/local.json`:        true,
+		`spec-tests/tests/valid/datetime/milliseconds.json`: true,
+		`spec-tests/tests/valid/float/inf-and-nan.json`:     true,
+		`spec-tests/tests/valid/string/unicode-escape.json`: true,
+	}
+
+	filepath.Walk(`spec-tests/tests/valid`, func(path string, info os.FileInfo, e error) error {
+
+		if info.IsDir() || !strings.HasSuffix(info.Name(), `.json`) {
+			return nil
+		}
+
+		fmt.Printf("path %v\n", path)
+
+		if _, ok := exclude[path]; ok {
+
+			fmt.Printf("excluded\n")
+			return nil
+		}
+
+		data, err := os.ReadFile(path)
+		require.NoError(t, err)
+
+		m := map[string]interface{}{}
+		err = json.Unmarshal(data, &m)
+		require.NoError(t, err)
+
+		res, err := taggedToUntagged(m)
+		require.NoError(t, err)
+
+		path = path[:len(path)-5] + `.toml`
+
+		data, err = os.ReadFile(path)
+		require.NoError(t, err)
+
+		reader := bytes.NewReader(data)
+		parsedJSON, err := io.ReadAll(New(reader))
+		require.NoError(t, err)
+
+		parsedMap := map[string]interface{}{}
+
+		err = json.Unmarshal(parsedJSON, &parsedMap)
+		require.NoError(t, err)
+
+		require.Equal(t, res, parsedMap)
+
+		return nil
+	})
+}
+
+func taggedToUntagged(obj interface{}) (interface{}, error) {
+
+	switch o := obj.(type) {
+	case map[string]interface{}:
+
+		res, ok, err := unwrap(o)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			return res, nil
+		}
+
+		for key, value := range o {
+
+			res, err := taggedToUntagged(value)
+			if err != nil {
+				return nil, err
+			}
+
+			o[key] = res
+		}
+
+		return obj, nil
+
+	case []interface{}:
+
+		arr := []interface{}{}
+		for _, item := range o {
+
+			res, err := taggedToUntagged(item)
+			if err != nil {
+				return nil, err
+			}
+			arr = append(arr, res)
+		}
+
+		return arr, nil
+	default:
+		return obj, nil
+	}
+}
+
+func unwrap(m map[string]interface{}) (interface{}, bool, error) {
+
+	var tagType string
+	var tagValue string
+	var counter, keyCounter int
+	for key, value := range m {
+
+		if counter > 2 {
+			break
+		}
+		counter++
+
+		if key == `type` {
+			keyCounter++
+			tagType = value.(string)
+		}
+
+		if key == `value` {
+			keyCounter++
+			tagValue = value.(string)
+		}
+	}
+
+	if keyCounter < 2 {
+		return nil, false, nil
+	}
+
+	switch tagType {
+	case `integer`:
+		v, err := strconv.Atoi(tagValue)
+		if err != nil {
+			return nil, false, fmt.Errorf(`unwarp integer failed %w`, err)
+		}
+		return float64(v), true, nil
+	case `float`:
+
+		switch tagValue {
+		case `nan`, `-nan`, `+nan`, `inf`, `-inf`, `+inf`:
+			return tagValue, true, nil
+		}
+
+		f, err := strconv.ParseFloat(tagValue, 64)
+		if err != nil {
+			return nil, false, fmt.Errorf("unwrap float failed %w", err)
+		}
+		return f, true, nil
+
+	case `bool`:
+
+		switch tagValue {
+		case `true`:
+			return true, true, nil
+		case `false`:
+			return false, true, nil
+		}
+
+		return nil, false, fmt.Errorf("unwrap bool failed %v", tagValue)
+	case `string`, `datetime`, `date-local`, `time-local`, `datetime-local`:
+		return tagValue, true, nil
+
+	}
+
+	panic(`no such type ` + tagType)
 }

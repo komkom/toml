@@ -54,16 +54,11 @@ func (r *Reader) Read(p []byte) (int, error) {
 		r.filter.Close()
 	}
 
-	if r.readerDone && r.filterDone && len(r.filter.State.Buf.Bytes()) == 0 {
+	if r.readerDone && len(r.filter.State.Buf.Bytes()) == 0 {
 		if len(r.filter.State.Scopes) != 0 {
 			return 0, fmt.Errorf(`invalid EOF`)
 		}
 		return 0, io.EOF
-	}
-
-	ln := len(p)
-	if len(r.filter.State.Buf.Bytes()) < ln {
-		ln = len(r.filter.State.Buf.Bytes())
 	}
 
 	n, err := r.filter.State.Buf.Read(p)

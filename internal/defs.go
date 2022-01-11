@@ -29,13 +29,13 @@ func MakeDefs() Defs {
 	}
 }
 
-func (d Defs) Define(key []string, v Var) bool {
+func (d Defs) Define(key []string, insertTable []string, v Var) bool {
 
 	if len(key) == 0 {
 		return false
 	}
 
-	ok := d.m.Set(key, v)
+	ok := d.m.Set(key, insertTable, v)
 	if !ok {
 		return false
 	}

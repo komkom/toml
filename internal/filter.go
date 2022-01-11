@@ -235,10 +235,11 @@ var (
 	SQT    Token = `'`
 	ESCT   Token = `escape`
 
-	OBT  Token = `[`  // open bracket
-	OBBT Token = `[[` // open bracket
-	CBT  Token = `]`
-	CBBT Token = `]]`
+	OBT      Token = `[`  // open bracket
+	OBBT     Token = `[[` // open bracket
+	CBT      Token = `]`
+	CBBT     Token = `]]`
+	CBTSPACE Token = `] `
 
 	DIGITT Token = `digit`
 	SIGNT  Token = `sign`
@@ -328,24 +329,14 @@ func (f *Filter) Write(p []byte) (int, error) {
 			f.State.position++
 		}
 
+		if !unicode.IsPrint(r) && !unicode.IsSpace(r) {
+			return 0, parseError(&f.State, `invalid character`)
+		}
+
 		if len(f.State.Scopes) == 0 {
 			break
 		}
 
-		if f.State.inComment {
-			if r == '\n' {
-				f.State.inComment = false
-			}
-
-			if f.State.inComment {
-				continue
-			}
-		}
-
-		if scidx, ok := f.State.topScopeIdx(); ok && f.State.Scopes[scidx].scopeType == OtherType && r == '#' {
-			f.State.inComment = true
-			continue
-		}
 		err = f.WriteRune(r)
 		if err != nil {
 			return 0, err
@@ -358,6 +349,21 @@ func (f *Filter) Write(p []byte) (int, error) {
 func (f *Filter) WriteRune(r rune) error {
 
 	for {
+		if f.State.inComment {
+			if r == '\n' {
+				f.State.inComment = false
+			}
+
+			if f.State.inComment {
+				return nil
+			}
+		}
+
+		if scidx, ok := f.State.topScopeIdx(); ok && f.State.Scopes[scidx].scopeType == OtherType && r == '#' {
+			f.State.inComment = true
+			return nil
+		}
+
 		scidx, ok := f.State.topScopeIdx()
 		if ok {
 			err := f.State.Scopes[scidx].Parse(r, &f.State)
@@ -444,11 +450,11 @@ func fullKey(key []string) string {
 	return strings.Join(key, "\n")
 }
 
-func BaseKeyDefs(baseKey []string, defs Defs) DefineFunc {
+func BaseKeyDefs(baseKey []string, insertTable []string, defs Defs) DefineFunc {
 
 	return func(key []string, v Var) bool {
 		key = append(baseKey, key...)
-		return defs.Define(key, v)
+		return defs.Define(key, insertTable, v)
 	}
 }
 
@@ -563,7 +569,7 @@ func QuotedString(r rune, state *State, scope *Scope) error {
 			state.keyData = append(state.keyData, '\\')
 			state.keyData = append(state.keyData, 'U')
 		} else {
-			state.Buf.WriteString("\\U")
+			state.Buf.WriteString("\\\\U")
 		}
 
 		scope.lastToken = OTHERT
@@ -618,7 +624,6 @@ func TrippleQuotedString(r rune, state *State, scope *Scope) error {
 			if scope.lastToken == QQQQT {
 				state.Buf.WriteString(`\"`)
 			}
-
 			state.Buf.WriteRune('"')
 			state.PopScope()
 			return ErrDontAdvance
@@ -666,6 +671,14 @@ func TrippleQuotedString(r rune, state *State, scope *Scope) error {
 	}
 
 	if scope.lastToken != ESCT && r == '\\' {
+
+		if scope.lastToken == QQT {
+			state.Buf.WriteString(`\"\"`)
+		}
+		if scope.lastToken == QT {
+			state.Buf.WriteString(`\"`)
+		}
+
 		scope.lastToken = ESCT
 		return nil
 	}
@@ -717,7 +730,14 @@ func TrippleQuotedString(r rune, state *State, scope *Scope) error {
 	}
 
 	if scope.lastToken == ESCT {
-		state.Buf.WriteRune('/')
+		state.Buf.WriteRune('\\')
+	}
+
+	if scope.lastToken == ESCT && r == '\\' {
+
+		scope.lastToken = OTHERT
+		state.Buf.WriteString(`\`)
+		return nil
 	}
 
 	if scope.lastToken == QT {
@@ -809,6 +829,11 @@ func MultiLineLiteralString(r rune, state *State, scope *Scope) error {
 		state.Buf.WriteRune('\'')
 	}
 
+	if scope.lastToken == SQQT {
+		state.Buf.WriteRune('\'')
+		state.Buf.WriteRune('\'')
+	}
+
 	scope.lastToken = OTHERT
 	state.Buf.WriteString(toJSONString(r))
 	return nil
@@ -860,6 +885,11 @@ func floatDispatchSign(r rune, state *State, scope *Scope) (bool, error) {
 		if scope.state != OtherState &&
 			scope.lastToken != EXPT {
 			return false, parseError(state, `invalid sign in float`)
+
+		}
+
+		if scope.lastToken == SIGNT {
+			return false, parseError(state, `invalid sign in float`)
 		}
 		scope.lastToken = SIGNT
 		return true, nil
@@ -872,7 +902,7 @@ func floatDispatchUnderscore(r rune, state *State, scope *Scope) (bool, error) {
 		if scope.lastToken != DIGITT {
 			return false, parseError(state, `invalid '_' in float`)
 		}
-
+		scope.counter++
 		scope.lastToken = UNDERT
 		return true, nil
 	}
@@ -884,6 +914,7 @@ func floatDispatchExp(r rune, state *State, scope *Scope) (bool, error) {
 		if scope.lastToken != DIGITT {
 			return false, parseError(state, `invalid 'e' in float`)
 		}
+		scope.counter++
 		scope.lastToken = EXPT
 		state.Buf.WriteRune(r)
 		scope.state = AfterExpState
@@ -948,6 +979,7 @@ func Float(firstState ScopeState, firstToken Token, counter int) ParseFunc {
 				if scope.lastToken != DIGITT {
 					return parseError(state, `invalid '.' in float`)
 				}
+				scope.counter++
 				scope.lastToken = DOTT
 				state.Buf.WriteRune('.')
 				scope.state = AfterDotState
@@ -1234,7 +1266,10 @@ func inlineTableDispatchKeyValue(r rune, defs Defs, state *State, scope *Scope) 
 	if unicode.IsOneOf(bareRanges, r) || r == '"' || r == '\'' {
 		scope.lastToken = OTHERT
 		scope.state = AfterValueState
-		state.PushScope(KeyValue(defs.Define, defs.keyFilter.Push), OtherType, scope)
+		state.PushScope(KeyValue(
+			func(key []string, v Var) bool {
+				return defs.Define(key, nil, v)
+			}, defs.keyFilter.Push), OtherType, scope)
 		return ErrDontAdvance
 	}
 	return parseError(state, `inline table could not dispatch key`)
@@ -1796,7 +1831,7 @@ func Table(r rune, state *State, scope *Scope) error {
 			scope.state = AfterValueState
 			state.PushScope(
 				KeyValue(
-					BaseKeyDefs(scope.key, state.defs),
+					BaseKeyDefs(scope.key, scope.key, state.defs),
 					BaseKeyFilterPushFunc(scope.key, state.defs.keyFilter.Push),
 				),
 				OtherType, scope)
@@ -1812,7 +1847,7 @@ func Table(r rune, state *State, scope *Scope) error {
 		}
 		scope.key = state.ExtractKeys()
 
-		ok := state.defs.Define(scope.key, TableVar)
+		ok := state.defs.Define(scope.key, nil, TableVar)
 		if !ok {
 			return parseError(state, `table attempt to redefine a key`)
 		}
@@ -1869,7 +1904,7 @@ func Array(r rune, state *State, scope *Scope) error {
 			scope.state = AfterValueState
 			state.PushScope(
 				KeyValue(
-					BaseKeyDefs(scope.key, state.defs),
+					BaseKeyDefs(scope.key, nil, state.defs),
 					BaseKeyFilterPushFunc(scope.key, state.defs.keyFilter.Push),
 				),
 				OtherType,
@@ -1885,7 +1920,7 @@ func Array(r rune, state *State, scope *Scope) error {
 			return parseError(state, `array end invalid`)
 		}
 		scope.key = state.ExtractKeys()
-		ok := state.defs.Define(scope.key, ArrayVar)
+		ok := state.defs.Define(scope.key, nil, ArrayVar)
 		if !ok {
 			return parseError(state, `array attempt to redefine a key`)
 		}
@@ -1896,6 +1931,9 @@ func Array(r rune, state *State, scope *Scope) error {
 	}
 
 	if unicode.IsSpace(r) {
+		if scope.lastToken == CBT {
+			scope.lastToken = CBTSPACE
+		}
 		return nil
 	}
 
@@ -1904,6 +1942,10 @@ func Array(r rune, state *State, scope *Scope) error {
 		if scope.lastToken == CBT && r == ']' {
 			scope.lastToken = CBBT
 			return nil
+		}
+
+		if scope.lastToken == CBTSPACE && r == ']' {
+			return parseError(state, `array invalid right brace`)
 		}
 
 		if r == ']' {
@@ -1924,17 +1966,12 @@ func Array(r rune, state *State, scope *Scope) error {
 
 func Top(r rune, state *State, scope *Scope) error {
 
+	if r == EOF && scope.lastToken != OTHERT {
+		return parseError(state, `invalid end of file`)
+	}
 	if r == EOF {
 		state.PopScope()
 		return nil
-	}
-
-	if scope.state == OtherState && unicode.IsSpace(r) {
-		return nil
-	}
-
-	if scope.state == OtherState {
-		scope.state = InitState
 	}
 
 	if scope.state == AfterValueState {
@@ -1957,7 +1994,14 @@ func Top(r rune, state *State, scope *Scope) error {
 	}
 
 	if unicode.IsSpace(r) {
+		if scope.lastToken == CBT {
+			scope.lastToken = CBTSPACE
+		}
 		return nil
+	}
+
+	if scope.lastToken == CBTSPACE && r == '[' {
+		return parseError(state, `invalid left brace`)
 	}
 
 	if scope.lastToken == CBT && r == '[' {
@@ -1966,7 +2010,7 @@ func Top(r rune, state *State, scope *Scope) error {
 		return nil
 	}
 
-	if scope.lastToken == CBT {
+	if scope.lastToken == CBT || scope.lastToken == CBTSPACE {
 		scope.lastToken = OTHERT
 		state.PushScope(Table, OtherType, scope)
 		return ErrDontAdvance
@@ -1978,8 +2022,12 @@ func Top(r rune, state *State, scope *Scope) error {
 	}
 
 	if unicode.IsOneOf(bareRanges, r) || r == '"' || r == '\'' {
+		scope.lastToken = OTHERT
 		scope.state = AfterValueState
-		state.PushScope(KeyValue(state.defs.Define, state.defs.keyFilter.Push), OtherType, scope)
+		state.PushScope(KeyValue(
+			func(key []string, v Var) bool {
+				return state.defs.Define(key, nil, v)
+			}, state.defs.keyFilter.Push), OtherType, scope)
 		return ErrDontAdvance
 	}
 

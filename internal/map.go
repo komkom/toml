@@ -5,7 +5,7 @@ type Map struct {
 	m   map[string]Map
 }
 
-func (m Map) Set(key []string, v Var) bool {
+func (m Map) Set(key []string, insertTable []string, v Var) bool {
 
 	currentMap := m
 	for idx, sk := range key {
@@ -16,19 +16,35 @@ func (m Map) Set(key []string, v Var) bool {
 			return false
 		}
 
+		// check if a basic var would be inserted in a previously definied table
+		if len(insertTable) > 0 &&
+			idx > len(insertTable) &&
+			subMap.Var == TableVar &&
+			v == BasicVar {
+
+			return false
+		}
+
 		if idx == len(key)-1 {
 
 			if ok {
 				if subMap.Var == ImplicitTableVar && v == TableVar {
-					subMap.Var = TableVar
 
-				} else if subMap.Var != ArrayVar {
+					subMap.Var = TableVar
+					currentMap.m[sk] = subMap
+					return true
+				}
+
+				if subMap.Var == ArrayVar && v == TableVar {
 					return false
 				}
-			} else {
-				subMap.Var = v
+
+				if subMap.Var != ArrayVar {
+					return false
+				}
 			}
 
+			subMap.Var = v
 			currentMap.m[sk] = subMap
 			return true
 		}
