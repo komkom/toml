@@ -338,7 +338,7 @@ func TestSpecTests_valid(t *testing.T) {
 
 		return nil
 	})
-	assert.Equal(t, 208, counter)
+	assert.Equal(t, 207, counter)
 	assert.Equal(t, 2, failed)
 }
 
