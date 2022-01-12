@@ -177,6 +177,10 @@ func TestReader(t *testing.T) {
 			doc:      `winpath  = 'C:\Users\nodejs\templates'`,
 			expected: `{"winpath":"C:\\Users\\nodejs\\templates"}`,
 		},
+		{
+			doc:      `string_escape = "\U00000000"`,
+			expected: `{"string_escape":"\\U00000000"}`,
+		},
 	}
 
 	for _, ts := range tests {
