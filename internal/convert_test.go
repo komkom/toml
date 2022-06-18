@@ -11,7 +11,7 @@ func TestConvert(t *testing.T) {
 
 	tests := []struct {
 		value    string
-		expected int
+		expected int64
 	}{
 		{
 			value:    `0x12AFE`,
@@ -46,7 +46,7 @@ func TestConvert(t *testing.T) {
 	var err error
 	for _, ts := range tests {
 
-		var total int
+		var total int64
 
 		for _, r := range ts.value[2:] {
 			if ts.value[:2] == `0x` {

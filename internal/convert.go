@@ -53,7 +53,7 @@ func fromBin(r rune) (int, error) {
 	return 0, fmt.Errorf(`not valid bin value`)
 }
 
-func addNumber(r rune, total int, t NumberType) (int, error) {
+func addNumber(r rune, total int64, t NumberType) (int64, error) {
 
 	switch t {
 	case BinNumberType:
@@ -67,7 +67,7 @@ func addNumber(r rune, total int, t NumberType) (int, error) {
 	return 0, fmt.Errorf(`addRune type not supported`)
 }
 
-func add(r rune, total int, f from, base int) (int, error) {
+func add(r rune, total int64, f from, base int) (int64, error) {
 
 	v, err := f(r)
 	if err != nil {
@@ -78,7 +78,7 @@ func add(r rune, total int, f from, base int) (int, error) {
 		return 0, nil
 	}
 
-	total *= base
-	total += v
+	total *= int64(base)
+	total += int64(v)
 	return total, nil
 }
