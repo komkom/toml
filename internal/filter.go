@@ -387,7 +387,7 @@ type Scope struct {
 	state     ScopeState
 	key       []string
 	scopeType ScopeType
-	counter   int
+	counter   int64
 	lastToken Token
 	parseFunc ParseFunc
 }
@@ -852,7 +852,7 @@ func PrefixNumber(ranges []*unicode.RangeTable, numberType NumberType) ParseFunc
 				return parseError(state, `invalid character at number end`)
 			}
 			state.PopScope()
-			state.Buf.WriteString(strconv.Itoa(scope.counter))
+			state.Buf.WriteString(strconv.FormatInt(scope.counter, 10))
 			return ErrDontAdvance
 		}
 
@@ -939,7 +939,7 @@ func Float(firstState ScopeState, firstToken Token, counter int) ParseFunc {
 		if scope.counter == 0 {
 			scope.state = firstState
 			scope.lastToken = firstToken
-			scope.counter = counter
+			scope.counter = int64(counter)
 		}
 
 		if unicode.IsSpace(r) && scope.lastToken == DIGITT {
@@ -1086,7 +1086,7 @@ func Time(offset int, val []rune, uptoMinutes bool) ParseFunc {
 	return func(r rune, state *State, scope *Scope) error {
 
 		if scope.counter == 0 {
-			scope.counter += offset
+			scope.counter += int64(offset)
 			state.data = val
 			state.Buf.WriteString(string(val))
 		}
@@ -1193,7 +1193,7 @@ func Date(offset int, val []rune) ParseFunc {
 		}
 
 		if scope.counter == 0 {
-			scope.counter += offset
+			scope.counter += int64(offset)
 			state.data = val
 			state.Buf.WriteString(string(val))
 		}
@@ -1350,14 +1350,14 @@ func InlineArray(r rune, state *State, scope *Scope) error {
 func LiteralValue(value []rune) ParseFunc {
 	return func(r rune, state *State, scope *Scope) error {
 
-		if scope.counter < len(value) {
+		if int(scope.counter) < len(value) {
 			if value[scope.counter] != r {
 				return parseError(state, `invalid literal value`)
 			}
 		}
 
 		scope.counter++
-		if scope.counter >= len(value) {
+		if int(scope.counter) >= len(value) {
 			state.PopScope()
 			return nil
 		}

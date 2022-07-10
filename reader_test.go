@@ -469,7 +469,7 @@ func unwrap(m map[string]interface{}) (interface{}, bool, error) {
 
 	switch tagType {
 	case `integer`:
-		v, err := strconv.Atoi(tagValue)
+		v, err := strconv.ParseInt(tagValue, 10, 64)
 		if err != nil {
 			return nil, false, fmt.Errorf(`unwarp integer failed %w`, err)
 		}
